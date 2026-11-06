@@ -131,6 +131,7 @@ probes  { mid { vessel carotid; x midpoint; } }     // x: metres, in, midpoint, 
 | `flowInlet` | Flow `flowRate` (a `Function1` of time, m3/s, positive into the vessel), by Newton on the outgoing characteristic |
 | `pressureInlet` | Pressure `pressure` (a `Function1` of time, Pa, the tube law's pressure): the area is `A(P)` and the velocity follows from the outgoing characteristic; reflects an incoming wave with Γ = -1 |
 | `absorbing` | Non-reflecting: the incoming Riemann invariant keeps its initial value |
+| `waveInlet` | Non-reflecting end that sends in a prescribed wave: the incoming invariant is its initial value plus `-2 s p(t)/(rho c0)`, `pressure` a `Function1` of time (Pa): a semi-infinite line with an incident wave |
 | `resistance` | `P - Pout = R Q` (entries `R`, `Pout`) |
 | `lumped0D` | A circulation0D circuit (`circuit`, a circulationProperties of its own) with one `externalPort` for the vessel end; for example a three-element Windkessel with the `windkessel3` preset |
 | `junction` | Two or more vessel ends: mass conserved and total pressure `P + rho U^2/2` continuous (Boileau Eqs. 7-8), by Newton with the analytic Jacobian |

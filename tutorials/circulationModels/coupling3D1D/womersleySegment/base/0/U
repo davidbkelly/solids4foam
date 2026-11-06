@@ -1,0 +1,25 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volVectorField;
+    object      U;
+}
+
+dimensions      [0 1 -1 0 0 0 0];
+
+internalField   uniform (0 0 0);
+
+boundaryField
+{
+    inlet   { type pressureInletOutletVelocity; value uniform (0 0 0); }
+    outlet  { type pressureInletOutletVelocity; value uniform (0 0 0); }
+    wall    { type noSlip; }
+    front   { type wedge; }
+    back    { type wedge; }
+}
+
+// ************************************************************************* //

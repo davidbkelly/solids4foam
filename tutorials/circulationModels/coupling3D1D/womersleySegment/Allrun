@@ -1,0 +1,25 @@
+#!/bin/bash
+# The Womersley segment at three Womersley numbers (the runs go together),
+# then the comparison with the exact periodic solution
+cd "$(dirname "$0")" || exit 1
+
+# Source solids4Foam scripts
+source solids4FoamScripts.sh
+
+python3 makeCases.py "$@" || exit 1
+
+for d in runs/alpha*
+do
+    if ! grep -qs "^End" "$d/log.pimpleFoam"
+    then
+        echo "Running $(basename "$d")"
+        (
+            cd "$d" || exit 1
+            blockMesh > log.blockMesh 2>&1 || exit 1
+            pimpleFoam > log.pimpleFoam 2>&1
+        ) &
+    fi
+done
+wait
+
+python3 analyse.py
