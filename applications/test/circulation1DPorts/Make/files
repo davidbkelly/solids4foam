@@ -1,0 +1,3 @@
+Test-circulation1DPorts.C
+
+EXE = $(FOAM_MODULE_APPBIN)/Test-circulation1DPorts

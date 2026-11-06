@@ -1,0 +1,3 @@
+circulation1DFoam.C
+
+EXE = $(FOAM_MODULE_APPBIN)/circulation1DFoam

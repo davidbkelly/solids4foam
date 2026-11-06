@@ -1,0 +1,39 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+application     Test-circulation1DPorts;
+
+startFrom       startTime;
+startTime       0;
+stopAt          endTime;
+endTime         0.6;
+deltaT          5e-4;          // the 3D time step
+
+writeControl    runTime;
+writeInterval   10;
+
+coupling
+{
+    scheme      implicit;       // explicit | implicit
+    order       2;              // 1..4
+    nIter       100;
+    tolerance   1e-12;
+}
+
+// ************************************************************************* //

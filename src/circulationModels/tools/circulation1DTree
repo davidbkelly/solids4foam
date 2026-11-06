@@ -1,0 +1,518 @@
+#!/usr/bin/env python3
+"""Draw the network of a circulation1DFoam case: its vessels, junctions and terminals.
+
+    circulation1DTree [case]                 # opens the drawing in a window
+    circulation1DTree -o tree.png [case]     # writes it to a file instead
+    circulation1DTree --topology [case]      # equal lengths: the branching only
+
+The case is a directory with constant/circulation1DProperties (default: the
+current one), or that file itself. The dictionary is read through
+"foamDictionary -expand" when OpenFOAM is sourced, so #include and $macros
+are resolved as the solver resolves them; otherwise the file is read as it is.
+
+The network is drawn as a tree from its inflow downwards: each vessel leaves
+its parent on a smooth curve and runs down as far as it is long (in m), as wide
+and as dark as its radius, narrowing along a tapered vessel. The widest branch
+continues straight on; side branches named as right-sided (..._R) go to the
+viewer's left and left-sided ones to the right, as facing the patient, others
+alternate. Markers show the inflow and the terminals by type, and dots the
+probes (labelled unless their names are numbered series such as aorta015).
+Labels that would overlap are left out. A vessel that closes a loop, joining
+two points already drawn, is dashed. Needs matplotlib.
+"""
+import argparse
+import math
+import re
+import shutil
+import subprocess
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+
+# ------------------------------------------------------------------ the reader
+
+def tokens(text):
+    """Tokens of an OpenFOAM dictionary: words, numbers, strings, verbatim
+    #{ #} blocks, and the punctuation { } ( ) ;"""
+    i, n = 0, len(text)
+    while i < n:
+        c = text[i]
+        if c.isspace():
+            i += 1
+        elif text.startswith("//", i):
+            i = text.find("\n", i)
+            i = n if i < 0 else i
+        elif text.startswith("/*", i):
+            j = text.find("*/", i + 2)
+            i = n if j < 0 else j + 2
+        elif text.startswith("#{", i):
+            j = text.find("#}", i + 2)
+            j = n if j < 0 else j + 2
+            yield text[i:j]
+            i = j
+        elif c == '"':
+            j = text.find('"', i + 1)
+            j = n if j < 0 else j + 1
+            yield text[i:j]
+            i = j
+        elif c in "{}();":
+            yield c
+            i += 1
+        else:
+            j = i
+            while j < n and not text[j].isspace() and text[j] not in "{}();\"":
+                j += 1
+            yield text[i:j]
+            i = j
+
+
+def parse(tok):
+    """A dictionary {keyword: value}: a value is a nested dictionary, or the
+    list of its tokens (parentheses kept as tokens)."""
+    out = {}
+    for t in tok:
+        if t == "}":
+            return out
+        if t in (";", ")", "("):
+            continue
+        key = t
+        nxt = next(tok, None)
+        if nxt == "{":
+            out[key] = parse(tok)
+            continue
+        value, depth = [], 0
+        while nxt is not None:
+            if nxt == "(":
+                depth += 1
+            elif nxt == ")":
+                depth -= 1
+            elif nxt == ";" and depth == 0:
+                break
+            elif nxt == "{" and depth == 0:     # a dictionary inside a value
+                value.append(parse(tok))
+                nxt = next(tok, None)
+                continue
+            value.append(nxt)
+            nxt = next(tok, None)
+        out[key] = value
+    return out
+
+
+def read_dictionary(path):
+    text = None
+    if shutil.which("foamDictionary"):
+        try:
+            text = subprocess.run(
+                ["foamDictionary", "-expand", str(path)], check=True,
+                capture_output=True, text=True,
+            ).stdout
+        except subprocess.CalledProcessError as e:
+            print(f"foamDictionary could not read {path}:\n{e.stderr}", file=sys.stderr)
+    if text is None:
+        text = Path(path).read_text()
+    return parse(iter(tokens(text)))
+
+
+def number(v, default=None):
+    if isinstance(v, list) and len(v) == 1:
+        v = v[0]
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return default
+
+
+def words(v):
+    """The words of a value, parentheses dropped: a connection list."""
+    return [t for t in v if isinstance(t, str) and t not in "()"]
+
+
+# ----------------------------------------------------------------- the network
+
+def network(d):
+    defaults = d.get("vesselDefaults", {})
+    vessels = {}
+    for name, vd in d.get("vessels", {}).items():
+        if not isinstance(vd, dict):
+            continue
+        v = dict(defaults)
+        v.update(vd)
+        L = number(v.get("length"), 0.0)
+        if "radius" in v:
+            r0 = r1 = number(v["radius"], 0.0)
+        else:
+            r0 = number(v.get("radiusProximal"), 0.0)
+            r1 = number(v.get("radiusDistal"), r0)
+        nc = number(v.get("nCells"))
+        if nc is None and number(v.get("dx")):
+            nc = round(L/number(v["dx"]))
+        vessels[name] = dict(L=L, r0=r0, r1=r1, nCells=int(nc or 0))
+
+    nodes, at_end = {}, {}
+    for name, nd in d.get("nodes", {}).items():
+        if not isinstance(nd, dict):
+            continue
+        ends = words(nd.get("connections", nd.get("connection", [])))
+        kind = words(nd.get("type", ["?"]))[0]
+        detail = ""
+        if kind == "lumped0D":
+            comps = nd.get("circuit", {}).get("components", {})
+            types = [words(c.get("type", ["?"]))[0] for c in comps.values()
+                     if isinstance(c, dict)]
+            detail = ", ".join(t for t in types if t != "externalPort")
+        elif kind == "resistance":
+            detail = f"R {number(nd.get('R'), 0):.3g}"
+        nodes[name] = dict(kind=kind, ends=ends, detail=detail)
+        for e in ends:
+            vessel, _, end = e.rpartition(".")
+            at_end[(vessel, end)] = name
+
+    probes = []
+    for name, pd in d.get("probes", {}).items():
+        if isinstance(pd, dict):
+            v = words(pd.get("vessel", [""]))[0]
+            x = words(pd.get("x", ["0"]))[0]
+            L = vessels.get(v, {}).get("L", 0.0)
+            x = {"in": 0.0, "midpoint": 0.5*L, "out": L}.get(x, number(x, 0.0))
+            probes.append(dict(name=name, vessel=v, x=x))
+    return vessels, nodes, at_end, probes
+
+
+# --------------------------------------------------------------------- layout
+
+def body_side(name):
+    """-1 for a right-sided vessel name (subclavian_R_I, iliacR), +1 for a
+    left-sided one, 0 if the name does not say."""
+    for part in re.split(r"_", name):
+        if part == "R" or re.search(r"[a-z0-9]R$", part):
+            return -1
+        if part == "L" or re.search(r"[a-z0-9]L$", part):
+            return 1
+    return 0
+
+
+def layout(vessels, nodes, at_end, topology):
+    """Place every node: a tree from each inflow downwards, depth the length
+    along the path (or the generation, with topology), leaves side by side."""
+    other = {"in": "out", "out": "in"}
+    children = defaultdict(list)        # node -> [(vessel, entered end, child node)]
+    placed, drawn, loops = set(), set(), []
+    starts = [n for n, v in nodes.items() if v["kind"] == "flowInlet"] or list(nodes)[:1]
+    roots = []
+    for s in starts:
+        if s in placed:
+            continue
+        roots.append(s)
+        placed.add(s)
+        stack = [s]
+        while stack:
+            node = stack.pop()
+            for e in nodes[node]["ends"]:
+                vessel, _, end = e.rpartition(".")
+                if vessel in drawn or vessel not in vessels:
+                    continue
+                drawn.add(vessel)
+                nxt = at_end.get((vessel, other[end]))
+                if nxt is None:
+                    continue
+                if nxt in placed:
+                    loops.append((vessel, node, nxt))
+                    continue
+                placed.add(nxt)
+                children[node].append((vessel, end, nxt))
+                stack.append(nxt)
+
+    pos, leaf = {}, [0]
+
+    def radius(vessel, end):
+        v = vessels[vessel]
+        return v["r0"] if end == "in" else v["r1"]
+
+    def place(node, y, parity=1):
+        kids = children[node]
+        if not kids:
+            pos[node] = (leaf[0], y)
+            leaf[0] += 1
+            return
+        # The widest branch (the trunk) straight below its parent, the side
+        # branches either side of it: right-sided names (..._R, ...R) on the
+        # viewer's left, left-sided ones on the right, as facing the patient;
+        # the others alternating sides down the trunk
+        kids.sort(key=lambda k: -radius(k[0], k[1]))
+        trunk, left, right = kids[0], [], []
+        for k in kids[1:]:
+            side = body_side(k[0])
+            if side == 0:
+                side = -parity
+                parity = -parity
+            (left if side < 0 else right).append(k)
+        kids[:] = left + [trunk] + right
+        for k in kids:
+            vessel, _, nxt = k
+            dy = 1.0 if topology else vessels[vessel]["L"]
+            place(nxt, y + dy, parity if k is trunk else 1)
+        pos[node] = (pos[trunk[2]][0], y)
+
+    for r in roots:
+        place(r, 0.0)
+        leaf[0] += 1                    # a gap between separate trees
+    return pos, children, loops
+
+
+# ---------------------------------------------------------------------- drawing
+
+# Terminal and inflow markers: shape, colour, legend label
+MARKERS = {
+    "flowInlet": ("v", "#2a78d6", "inflow"),
+    "lumped0D": ("o", "#1baf7a", "0D circuit"),
+    "resistance": ("D", "#c98500", "resistance"),
+    "absorbing": ("o", "#6250d6", "absorbing"),
+}
+INK = "#1d1c1a"
+INK_2 = "#6b6a66"
+PROBE = "#6250d6"
+# The vessels: one hue, pale rose for the smallest radius to deep red for the
+# largest
+VESSEL_LIGHT = "#f0b9b3"
+VESSEL_DARK = "#7a1020"
+
+
+def x_on_path(pts, y):
+    """x of a vessel's drawn path at depth y (the path descends monotonically)."""
+    for (xa, ya), (xb, yb) in zip(pts[:-1], pts[1:]):
+        if ya <= y <= yb:
+            return xa + (xb - xa)*((y - ya)/(yb - ya) if yb > ya else 0)
+    return pts[-1][0] if y > pts[-1][1] else pts[0][0]
+
+
+def vessel_path(x0, y0, x1, y1, depth, aspect, n=28):
+    """Points of a vessel from its parent's end (x0, y0) to its own end
+    (x1, y1): a smooth curve away from the parent, then straight down.
+    aspect is the page height of one unit of x in units of y, so that the
+    curve leaves at about 45 degrees on the page."""
+    dy = y1 - y0
+    if abs(x1 - x0) < 1e-9 or dy <= 0:
+        return [(x0, y0 + dy*i/n) for i in range(n + 1)]
+    turn = min(dy, max(0.03*depth, 0.7*abs(x1 - x0)*aspect))
+    pts = []
+    for i in range(n + 1):
+        t = i/n
+        # cubic Bezier (x0, y0) -> (x1, y0 + turn), vertical at both ends
+        a, b, c, d = (1 - t)**3, 3*(1 - t)**2*t, 3*(1 - t)*t**2, t**3
+        pts.append((a*x0 + b*x0 + c*x1 + d*x1,
+                    a*y0 + (b + c)*(y0 + 0.5*turn) + d*(y0 + turn)))
+    if turn < dy:
+        pts.append((x1, y1))
+    return pts
+
+
+def draw(case, vessels, nodes, pos, children, loops, probes, topology, out):
+    try:
+        import matplotlib
+        if out:
+            matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from matplotlib.collections import LineCollection
+        from matplotlib.colors import LinearSegmentedColormap, LogNorm
+        from matplotlib.ticker import NullLocator
+    except ImportError:
+        sys.exit("circulation1DTree needs matplotlib:  pip3 install matplotlib\n"
+                 "(or run it with a Python that has it:  /path/to/python3 "
+                 "$(which circulation1DTree) ...)")
+
+    n_leaves = max(1, max(x for x, _ in pos.values()) + 1)
+    depth = max(y for _, y in pos.values()) or 1.0
+    fig_w, fig_h = min(60, max(8, 0.34*n_leaves + 2)), 11
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+    aspect = (fig_w/(n_leaves + 1))/(fig_h/(1.08*depth))
+    fig.patch.set_facecolor("white")
+
+    radii = [r for v in vessels.values() for r in (v["r0"], v["r1"]) if r > 0]
+    rmin, rmax = (min(radii), max(radii)) if radii else (1, 1)
+    cmap = LinearSegmentedColormap.from_list("vessel", [VESSEL_LIGHT, VESSEL_DARK])
+    norm = LogNorm(vmin=rmin, vmax=rmax if rmax > rmin else rmin*1.01)
+    width = lambda r: 0.7 + 8.5*(r/rmax)**0.75                 # points
+
+    # Vessels, the smallest first so that a trunk covers the root of its
+    # branches
+    order = []
+    for node, kids in children.items():
+        for vessel, end, nxt in kids:
+            order.append((node, vessel, end, nxt))
+    order.sort(key=lambda o: max(vessels[o[1]]["r0"], vessels[o[1]]["r1"]))
+
+    labels = []                 # (priority, x, y, text, style), placed last
+    for node, vessel, end, nxt in order:
+        (x0, y0), (x1, y1) = pos[node], pos[nxt]
+        v = vessels[vessel]
+        ra, rb = (v["r0"], v["r1"]) if end == "in" else (v["r1"], v["r0"])
+        pts = vessel_path(x0, y0, x1, y1, depth, aspect)
+        segs, lws, cols = [], [], []
+        for (xa, ya), (xb, yb) in zip(pts[:-1], pts[1:]):
+            s = 0.5*(ya + yb - 2*y0)/(y1 - y0) if y1 > y0 else 0
+            r = ra + (rb - ra)*s
+            segs.append([(xa, ya), (xb, yb)])
+            lws.append(width(r))
+            cols.append(cmap(norm(r)))
+        ax.add_collection(LineCollection(segs, linewidths=lws, colors=cols,
+                                         capstyle="round", joinstyle="round",
+                                         zorder=2))
+        v["drawn"] = (x1, y0, y1, end, pts)
+        # beside the straight part of the vessel, if it has one
+        straight = [q for q in pts if abs(q[0] - x1) < 1e-9]
+        ys = straight[0][1] if straight else y0
+        long_enough = y1 - ys > 0.05*depth
+        yl = 0.5*(ys + y1) if long_enough else 0.5*(y0 + y1)
+        labels.append((
+            y1 - y0, x_on_path(pts, yl) + 0.16, yl,
+            vessel.replace("_", " "),
+            dict(rotation=90 if long_enough else 0,
+                 fontsize=5.5 if long_enough else 4.5, color=INK_2,
+                 va="center", ha="left", zorder=5),
+        ))
+
+    for vessel, a, b in loops:
+        (xa, ya), (xb, yb) = pos[a], pos[b]
+        ax.plot([xa, xb], [ya, yb], color=INK_2, linestyle=(0, (4, 3)),
+                linewidth=1.0, zorder=1)
+        ax.text(0.5*(xa + xb), 0.5*(ya + yb), vessel, fontsize=5.5, color=INK_2)
+
+    # Inflow and terminals: small soft markers at the ends of the tree
+    seen = set()
+    for name, nd in nodes.items():
+        kind = nd["kind"]
+        if name not in pos or kind == "junction":
+            continue
+        m, colour, label = MARKERS.get(kind, ("P", "#8a8a85", kind))
+        x, y = pos[name]
+        ax.scatter(x, y, marker=m, s=26 if kind == "flowInlet" else 16,
+                   facecolor=colour, edgecolor="white", linewidths=0.6, zorder=4,
+                   label=None if kind in seen else label)
+        seen.add(kind)
+        if nd["detail"] and len(nodes) <= 12:
+            ax.text(x, y + 0.015*depth, nd["detail"], fontsize=5.5, color=INK_2,
+                    ha="center", va="top")
+
+    # Probes, along the vessels
+    for p in probes:
+        v = vessels.get(p["vessel"], {})
+        if "drawn" not in v or not v["L"]:
+            continue
+        _, y0, y1, end, pts = v["drawn"]
+        s = p["x"]/v["L"] if end == "in" else 1 - p["x"]/v["L"]
+        y = y0 + (y1 - y0)*s
+        x = x_on_path(pts, y)
+        if re.search(r"\d+$", p["name"]):
+            # A numbered series (aorta000, aorta005, ...): faint and unlabelled
+            ax.scatter(x, y, marker=".", s=3, color="white", alpha=0.7,
+                       linewidths=0, zorder=4)
+            continue
+        ax.scatter(x, y, marker="o", s=10, facecolor=PROBE, edgecolor="white",
+                   linewidths=0.5, zorder=6, label=None if "probe" in seen else "probe")
+        seen.add("probe")
+        labels.append((float("inf"), x - 0.2, y, p["name"],
+                       dict(fontsize=6, color=PROBE, ha="right", va="center",
+                            zorder=6)))
+
+    # Title, a scale and the radius key
+    total = sum(v["L"] for v in vessels.values())
+    cells = sum(v["nCells"] for v in vessels.values())
+    kinds = defaultdict(int)
+    for nd in nodes.values():
+        kinds[nd["kind"]] += 1
+    words_of = {"flowInlet": ("inflow", "inflows"), "junction": ("junction", "junctions"),
+                "lumped0D": ("0D circuit", "0D circuits"),
+                "resistance": ("resistance", "resistances"),
+                "absorbing": ("absorbing end", "absorbing ends")}
+    summary = ", ".join(
+        f"{n} {words_of.get(k, (k, k))[n != 1]}" for k, n in sorted(kinds.items())
+    )
+    ax.text(0, 1.02, case, transform=ax.transAxes, fontsize=13, color=INK,
+            fontweight="bold", va="bottom")
+    ax.text(0, 1.003, f"{len(vessels)} vessels, {total:.3g} m, {cells} cells   "
+            f"·   {summary}", transform=ax.transAxes, fontsize=8, color=INK_2,
+            va="bottom")
+
+    ax.set_xlim(-1, n_leaves + 0.6)
+    ax.set_ylim(depth*1.04 + 0.01, -0.04*depth - 0.01)
+    ax.set_axis_off()
+    if not topology:
+        bar = 10**math.floor(math.log10(0.25*depth))
+        bar *= 5 if 5*bar <= 0.25*depth else 2 if 2*bar <= 0.25*depth else 1
+        yb = depth*1.02
+        ax.plot([-0.6, -0.6], [yb - bar, yb], color=INK_2, linewidth=1.2,
+                solid_capstyle="butt")
+        ax.text(-0.45, yb - 0.5*bar, f"{100*bar:g} cm", fontsize=7, color=INK_2,
+                va="center", ha="left")
+
+    sm = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
+    cax = ax.inset_axes([0.78, -0.035, 0.2, 0.012])
+    cb = fig.colorbar(sm, cax=cax, orientation="horizontal")
+    cb.set_label("radius [mm]", fontsize=7, color=INK_2)
+    cb.outline.set_visible(False)
+    ticks = [t for t in (0.5e-3, 1e-3, 2e-3, 5e-3, 1e-2, 2e-2) if rmin <= t <= rmax]
+    cb.set_ticks(ticks or [rmin, rmax])
+    cb.set_ticklabels([f"{1000*t:g}" for t in (ticks or [rmin, rmax])])
+    cb.ax.xaxis.set_minor_locator(NullLocator())
+    cb.ax.tick_params(labelsize=6, colors=INK_2, length=2)
+
+    ax.legend(frameon=False, fontsize=7.5, loc="upper left", ncol=5,
+              bbox_to_anchor=(0, -0.005), labelcolor=INK_2, handletextpad=0.3)
+    fig.tight_layout()
+
+    # Labels: probes first, then the vessels from the longest, each kept only
+    # if it does not overlap one already placed
+    renderer = fig.canvas.get_renderer()
+    placed = []
+    for _, x, y, text, style in sorted(labels, key=lambda l: -l[0]):
+        t = ax.text(x, y, text, **style)
+        box = t.get_window_extent(renderer).expanded(1.05, 1.15)
+        if any(box.overlaps(b) for b in placed):
+            t.remove()
+        else:
+            placed.append(box)
+    if out:
+        fig.savefig(out, dpi=170, facecolor="white")
+        print(f"wrote {out}")
+    else:
+        plt.show()
+
+
+# ----------------------------------------------------------------------- main
+
+def main():
+    ap = argparse.ArgumentParser(
+        description="Draw the network of a circulation1DFoam case.",
+        epilog="Without -o the drawing opens in a window.")
+    ap.add_argument("case", nargs="?", default=".",
+                    help="case directory or circulation1DProperties file")
+    ap.add_argument("-o", "--output", help="write the drawing to this file (PNG, PDF, SVG)")
+    ap.add_argument("--topology", action="store_true",
+                    help="draw every vessel the same length")
+    args = ap.parse_args()
+
+    path = Path(args.case)
+    if path.is_dir():
+        path = path/"constant"/"circulation1DProperties"
+    if not path.is_file():
+        sys.exit(f"No {path}: give a circulation1DFoam case or its "
+                 "constant/circulation1DProperties")
+
+    case = path.resolve().parent.parent.name if path.parent.name == "constant" \
+        else path.name
+    vessels, nodes, at_end, probes = network(read_dictionary(path))
+    if not vessels:
+        sys.exit(f"{path} has no vessels")
+    pos, children, loops = layout(vessels, nodes, at_end, args.topology)
+    draw(case, vessels, nodes, pos, children, loops, probes, args.topology,
+         args.output)
+    in_loops = {v for v, _, _ in loops}
+    unreached = [v for v in vessels if "drawn" not in vessels[v] and v not in in_loops]
+    if unreached:
+        print(f"Not reached from an inflow (not drawn): {' '.join(unreached)}",
+              file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()

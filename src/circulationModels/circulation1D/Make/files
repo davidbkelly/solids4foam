@@ -1,0 +1,23 @@
+tubeLaws/tubeLaw1D.C
+tubeLaws/sqrtElastic.C
+
+numerics/slopeLimiter1D.C
+numerics/riemannFlux1D.C
+numerics/rungeKutta1D.C
+numerics/kExactReconstruction1D.C
+
+vessel1D/vessel1D.C
+
+nodes1D/node1D.C
+nodes1D/flowInlet.C
+nodes1D/pressureInlet.C
+nodes1D/absorbing.C
+nodes1D/resistance.C
+nodes1D/lumped0D.C
+nodes1D/junction.C
+nodes1D/inertance.C
+nodes1D/coupledFlow.C
+
+network1D/network1D.C
+
+LIB = $(FOAM_MODULE_LIBBIN)/libcirculation1D

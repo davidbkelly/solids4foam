@@ -1,0 +1,105 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      circulation1DProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// The rigid-segment test of the 3D-1D ports: rigidSegmentInertance with the
+// inertance node replaced by two coupledFlow ports, and the pipe integrated by
+// Test-circulation1DPorts as a CFD would (surrogate3D). The coupled pipe flow
+// should converge to the monolithic one (the inertance node) as deltaT -> 0.
+
+fluid
+{
+    rho             1050;
+    mu              0;
+    profileOrder    9;
+    alpha           1;
+}
+
+numerics
+{
+    CFL             0.5;
+    flux            HLL;
+    limiter         none;
+    timeScheme      SSPRK2;
+}
+
+vesselDefaults
+{
+    length              2;
+    nCells              1600;           // dx = 1.25 mm
+    radius              0.01;
+    wallThickness       1.5e-3;
+    youngsModulus       400e3;
+    diastolicPressure   0;
+    externalPressure    0;
+    initialPressure     0;
+}
+
+vessels
+{
+    proximal {}
+    distal   {}
+}
+
+nodes
+{
+    inlet
+    {
+        type        flowInlet;
+        connection  proximal.in;
+        flowRate
+        {
+            type        scale;
+            scale       1e-3;           // amplitude factor
+            value
+            {
+                type        expression;
+                expression  #{ 1e-6*exp(-1e4*sqr(arg() - 0.05)) #};
+            }
+        }
+    }
+
+    to3D
+    {
+        type        coupledFlow;
+        connection  proximal.out;
+        patch       inlet;
+    }
+
+    from3D
+    {
+        type        coupledFlow;
+        connection  distal.in;
+        patch       outlet;
+    }
+
+    outlet
+    {
+        type        absorbing;
+        connection  distal.out;
+    }
+}
+
+surrogate3D
+{
+    length      0.08;
+    radius      0.01;
+    ddtScheme   backward;       // Euler | backward
+}
+
+// ************************************************************************* //
