@@ -1,0 +1,4 @@
+coupler/circulation1DCoupler.C
+boundaryConditions/circulation1DPressureFvPatchScalarField.C
+
+LIB = $(FOAM_MODULE_LIBBIN)/libcirculation1DCoupling
