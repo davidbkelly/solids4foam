@@ -1,0 +1,12 @@
+#!/bin/bash
+# Run the seven benchmark cases of Boileau et al. (2015) and their analyses
+# (each case's own Allrun), in the order of the paper.
+#   PYTHON=/path/to/python ./Allrun     a Python with numpy and matplotlib
+cd "$(dirname "$0")" || exit 1
+
+for case in singlePulseInviscid singlePulseViscous commonCarotid \
+            upperThoracicAorta aorticBifurcation thirtySevenArtery ADAN56
+do
+    echo "=== boileau2015/$case"
+    "./$case/Allrun" || exit 1
+done

@@ -1,0 +1,21 @@
+#!/bin/bash
+# The whole rigid-segment 3D-1D study, for the CFD time schemes backward (BDF2),
+# BDF 3 and BDF 4 (the latter two from libsolids4FoamModels): explicit orders
+# 1-4 and implicit coupling at dt = 4 to 0.25 ms, a fine reference
+# (dt = 0.03125 ms) per scheme, and explicit runs at 0.9 and 1.1 times the
+# predicted stability limits: about 100 serial pimpleFoam cases, NPROC
+# (default 6) at a time, about an hour; then analyse.py.
+#   NPROC=8 PYTHON=/path/to/python ./Allrun-sweep
+#   DDT=backward ./Allrun-sweep         one time scheme only
+cd "$(dirname "$0")" || exit 1
+: "${WM_PROJECT_DIR:?OpenFOAM environment not sourced}"
+
+# Source solids4Foam scripts (on macOS, this keeps the OpenFOAM libraries findable)
+source solids4FoamScripts.sh
+
+# The circulation models are currently only built for OpenFOAM.com
+solids4Foam::caseDoesNotRunWithFoamExtend
+solids4Foam::caseDoesNotRunWithOpenFOAMOrg
+
+"${PYTHON:-python3}" sweep.py "${NPROC:-6}" --ddt "${DDT:-backward,BDF3,BDF4}" || exit 1
+"${PYTHON:-python3}" analyse.py || echo "analyse.py failed: it needs numpy and scipy"

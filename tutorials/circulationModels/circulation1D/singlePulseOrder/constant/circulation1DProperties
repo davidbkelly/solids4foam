@@ -1,0 +1,79 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      circulation1DProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Order of accuracy: the inviscid single pulse of singlePulseInviscid, refined at
+// fixed CFL with the unlimited reconstruction, against the linear solution
+//     P(x, t) = Z0 Qin(t - x/c0),   Z0 = rho c0/A0.
+// Allrun sets nCells and the amplitude factor (flowRate scale) of each run.
+
+fluid
+{
+    rho             1050;
+    mu              0;
+    profileOrder    9;
+    alpha           1;
+}
+
+numerics
+{
+    CFL             0.5;
+    flux            HLL;
+    limiter         none;
+    timeScheme      SSPRK2;
+}
+
+vessels
+{
+    tube
+    {
+        length              10;
+        nCells              1000;
+        radius              0.01;
+        wallThickness       1.5e-3;
+        youngsModulus       400e3;
+        initialPressure     0;
+    }
+}
+
+nodes
+{
+    inlet
+    {
+        type        flowInlet;
+        connection  tube.in;
+        flowRate
+        {
+            type        scale;
+            scale       1;              // amplitude factor
+            value
+            {
+                type        expression;
+                expression  #{ 1e-6*exp(-1e4*sqr(arg() - 0.05)) #};
+            }
+        }
+    }
+
+    outlet
+    {
+        type        absorbing;
+        connection  tube.out;
+    }
+}
+
+// ************************************************************************* //

@@ -1,0 +1,89 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2412                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+FoamFile
+{
+    version         2;
+    format          ascii;
+    class           dictionary;
+    location        "constant";
+    object          circulation1DProperties;
+}
+
+fluid
+{
+    rho             1050;
+    mu              0;
+    profileOrder    9;
+    alpha           1;
+}
+
+numerics
+{
+    CFL             0.5;
+    flux            HLL;
+    limiter         none;
+    timeScheme      SSPRK2;
+}
+
+vesselDefaults
+{
+    length          2;
+    nCells          200;
+    radius          0.01;
+    wallThickness   0.0015;
+    youngsModulus   400000;
+    diastolicPressure 0;
+    externalPressure 0;
+    initialPressure 0;
+}
+
+vessels
+{
+    proximal
+    {
+    }
+    distal
+    {
+    }
+}
+
+nodes
+{
+    inlet
+    {
+        type            flowInlet;
+        connection      proximal.in;
+        flowRate
+        {
+            type            scale;
+            scale           0.001;
+            value
+            {
+                type            expression;
+                expression      #{ 1e-6*exp(-1e4*sqr(arg() - 0.05)) #};
+            }
+        }
+    }
+    rigid
+    {
+        type            inertance;
+        connections     ( proximal.out distal.in );
+        length          0.08;
+        radius          0.01;
+        pressure        static;
+    }
+    outlet
+    {
+        type            absorbing;
+        connection      distal.out;
+    }
+}
+
+
+// ************************************************************************* //

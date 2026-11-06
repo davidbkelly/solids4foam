@@ -1,0 +1,33 @@
+#!/bin/bash
+# The hard- and soft-coupling tests of Dobroserdova, Olshanskii & Simakov
+# (2016), sections 4.2-4.3: 18 1D cases (seconds each) and the two 3D runs of
+# the hard coupling (pimpleFoam, a few minutes each); then analyse.py.
+#   ./Allrun
+#   PYTHON=/path/to/python ./Allrun     a Python with numpy, scipy and matplotlib
+cd "$(dirname "$0")" || exit 1
+: "${WM_PROJECT_DIR:?OpenFOAM environment not sourced}"
+
+# Source solids4Foam scripts (on macOS, this keeps the OpenFOAM libraries findable)
+source solids4FoamScripts.sh
+
+# The circulation models are currently only built for OpenFOAM.com
+solids4Foam::caseDoesNotRunWithFoamExtend
+solids4Foam::caseDoesNotRunWithOpenFOAMOrg
+
+"${PYTHON:-python3}" makeCases.py > /dev/null || exit 1
+
+# Background jobs of this shell, not xargs: on macOS xargs and sh drop
+# DYLD_LIBRARY_PATH and the runs would not find the OpenFOAM libraries
+cd runs || exit 1
+for d in *_reference *_hard *_soft; do
+    (cd "$d" && circulation1DFoam > log 2>&1 && echo "done $d" || echo "FAILED $d") &
+done
+wait
+for d in *_hard3D; do
+    (cd "$d" && blockMesh > log.blockMesh 2>&1 && pimpleFoam > log.pimpleFoam 2>&1 \
+        && echo "done $d" || echo "FAILED $d") &
+done
+wait
+cd ..
+
+"${PYTHON:-python3}" analyse.py || echo "analyse.py failed: it needs numpy and scipy"

@@ -1,0 +1,11 @@
+#!/bin/bash
+# Remove the results of every case (each case's own Allclean) and the plots
+cd "$(dirname "$0")" || exit 1
+
+for script in */*/dt_*/Allclean; do
+    [ -x "$script" ] && "./$script"
+done
+
+rm -rf plots/__pycache__ __pycache__
+rm -f plots/orderAccuracy.json plots/orderAccuracy.csv plots/orderOfAccuracy*.png plots/outletPressure_dt*.png
+rm -f plots/pointwiseError_dt*.png plots/*.svg

@@ -1,0 +1,135 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      circulation1DProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Upper thoracic aorta, Boileau et al. (2015) section 4.3, Table V.
+// A single vessel from rest (P = 0, A = A0, Q = 0), the inflow of the data
+// supplement at its inlet and a three-element Windkessel at its outlet.
+
+fluid
+{
+    rho             1060;
+    mu              4e-3;
+    profileOrder    9;
+    alpha           1;
+}
+
+numerics
+{
+    CFL             0.5;            // the TVD bound of the limited reconstruction
+    flux            HLL;
+    limiter         MC;
+    timeScheme      SSPRK2;
+}
+
+vessels
+{
+    aorta
+    {
+        length              0.24137;
+        nCells              241;       // dx = 1 mm
+        radius              0.012;       // at the diastolic pressure
+        wallThickness       1.2e-3;
+        youngsModulus       400e3;
+        diastolicPressure   9466.67;   // 9.4666... kPa
+        externalPressure    0;
+        initialPressure     0;
+    }
+}
+
+nodes
+{
+    // referenceData/inflow.txt [ml/s], period T, as m3/s
+    inlet
+    {
+        type        flowInlet;
+        connection  aorta.in;
+        flowRate
+        {
+            type        expression;
+            variables   ( "T = 0.9550" );
+            expression
+            #{
+                1e-6*500*(0.20617+0.37759*sin(2*pi()*arg()/T+0.59605)
+                +0.2804*sin(4*pi()*arg()/T-0.35859)+0.15337*sin(6*pi()*arg()/T-1.2509)
+                -0.049889*sin(8*pi()*arg()/T+1.3921)
+                +0.038107*sin(10*pi()*arg()/T-1.1068)
+                -0.041699*sin(12*pi()*arg()/T+1.3985)
+                -0.020754*sin(14*pi()*arg()/T+0.72921)
+                +0.013367*sin(16*pi()*arg()/T-1.5394)
+                -0.021983*sin(18*pi()*arg()/T+0.95617)
+                -0.013072*sin(20*pi()*arg()/T-0.022417)
+                +0.0037028*sin(22*pi()*arg()/T-1.4146)
+                -0.013973*sin(24*pi()*arg()/T+0.77416)
+                -0.012423*sin(26*pi()*arg()/T-0.46511)
+                +0.0040098*sin(28*pi()*arg()/T+0.95145)
+                -0.0059704*sin(30*pi()*arg()/T+0.86369)
+                -0.0073439*sin(32*pi()*arg()/T-0.64769)
+                +0.0037006*sin(34*pi()*arg()/T+0.74663)
+                -0.0032069*sin(36*pi()*arg()/T+0.85926)
+                -0.0048171*sin(38*pi()*arg()/T-1.0306)
+                +0.0040403*sin(40*pi()*arg()/T+0.28009)
+                -0.0032409*sin(42*pi()*arg()/T+1.202)
+                -0.0032517*sin(44*pi()*arg()/T-0.93316)
+                +0.0029112*sin(46*pi()*arg()/T+0.21405)
+                -0.0022708*sin(48*pi()*arg()/T+1.1869)
+                -0.0021566*sin(50*pi()*arg()/T-1.1574)
+                +0.0025511*sin(52*pi()*arg()/T-0.12915)
+                -0.0024448*sin(54*pi()*arg()/T+1.1185)
+                -0.0019032*sin(56*pi()*arg()/T-0.99244)
+                +0.0019476*sin(58*pi()*arg()/T-0.059885)
+                -0.0019477*sin(60*pi()*arg()/T+1.1655)
+                -0.0014545*sin(62*pi()*arg()/T-0.85829)
+                +0.0013979*sin(64*pi()*arg()/T+0.042912)
+                -0.0014305*sin(66*pi()*arg()/T+1.2439)
+                -0.0010775*sin(68*pi()*arg()/T-0.79464)
+                +0.0010368*sin(70*pi()*arg()/T-0.0043058)
+                -0.0012162*sin(72*pi()*arg()/T+1.211)
+                -0.00095707*sin(74*pi()*arg()/T-0.66203)
+                +0.00077733*sin(76*pi()*arg()/T+0.25642)
+                -0.00092407*sin(78*pi()*arg()/T+1.3954)
+                -0.00079585*sin(80*pi()*arg()/T-0.49973))
+            #};
+        }
+    }
+
+    // Windkessel (Boileau Eq. 9): R1 = Rch, C, R2 = R, Pout = 0, from the
+    // windkessel3 preset of circulation0D
+    outlet
+    {
+        type        lumped0D;
+        connection  aorta.out;
+        circuit
+        {
+            units       SI;
+            components
+            {
+                port    { type externalPort; direction outlet; }
+                wk      { type windkessel3; Rch 1.1752e7; C 1.0163e-8; R 1.1167e8; }
+            }
+            connections ( (port wk) );
+        }
+    }
+}
+
+probes
+{
+    mid     { vessel aorta; x midpoint; }
+}
+
+// ************************************************************************* //

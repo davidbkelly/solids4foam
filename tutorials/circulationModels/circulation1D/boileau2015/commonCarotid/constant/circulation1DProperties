@@ -1,0 +1,120 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      circulation1DProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Common carotid artery, Boileau et al. (2015) section 4.2, Table III.
+// A single vessel from rest (P = 0, A = A0, Q = 0), the inflow of the data
+// supplement at its inlet and a three-element Windkessel at its outlet.
+
+fluid
+{
+    rho             1060;
+    mu              4e-3;
+    profileOrder    2;
+    alpha           1;
+}
+
+numerics
+{
+    CFL             0.5;            // the TVD bound of the limited reconstruction
+    flux            HLL;
+    limiter         MC;
+    timeScheme      SSPRK2;
+}
+
+vessels
+{
+    carotid
+    {
+        length              0.126;
+        nCells              126;       // dx = 1 mm
+        radius              3e-3;       // at the diastolic pressure
+        wallThickness       0.3e-3;
+        youngsModulus       700e3;
+        diastolicPressure   10933;
+        externalPressure    0;
+        initialPressure     0;
+    }
+}
+
+nodes
+{
+    // referenceData/inflow.txt [ml/s], period T, as m3/s
+    inlet
+    {
+        type        flowInlet;
+        connection  carotid.in;
+        flowRate
+        {
+            type        expression;
+            variables   ( "T = 1.1" );
+            expression
+            #{
+                1e-6*(6.5+3.294*sin(2*pi()*arg()/T-0.023974)
+                +1.9262*sin(4*pi()*arg()/T-1.1801)-1.4219*sin(6*pi()*arg()/T+0.92701)
+                -0.66627*sin(8*pi()*arg()/T-0.24118)
+                -0.33933*sin(10*pi()*arg()/T-0.27471)
+                -0.37914*sin(12*pi()*arg()/T-1.0557)+0.22396*sin(14*pi()*arg()/T+1.22)
+                +0.1507*sin(16*pi()*arg()/T+1.0984)
+                +0.18735*sin(18*pi()*arg()/T+0.067483)
+                +0.038625*sin(20*pi()*arg()/T+0.22262)
+                +0.012643*sin(22*pi()*arg()/T-0.10093)
+                -0.0042453*sin(24*pi()*arg()/T-1.1044)
+                -0.012781*sin(26*pi()*arg()/T-1.3739)
+                +0.014805*sin(28*pi()*arg()/T+1.2797)
+                +0.012249*sin(30*pi()*arg()/T+0.80827)
+                +0.0076502*sin(32*pi()*arg()/T+0.40757)
+                +0.0030692*sin(34*pi()*arg()/T+0.195)
+                -0.0012271*sin(36*pi()*arg()/T-1.1371)
+                -0.0042581*sin(38*pi()*arg()/T-0.92102)
+                -0.0069785*sin(40*pi()*arg()/T-1.2364)
+                +0.0085652*sin(42*pi()*arg()/T+1.4539)
+                +0.0081881*sin(44*pi()*arg()/T+0.89599)
+                +0.0056549*sin(46*pi()*arg()/T+0.17623)
+                +0.0026358*sin(48*pi()*arg()/T-1.3003)
+                -0.0050868*sin(50*pi()*arg()/T-0.011056)
+                -0.0085829*sin(52*pi()*arg()/T-0.86463))
+            #};
+        }
+    }
+
+    // Windkessel (Boileau Eq. 9): R1 = Rch, C, R2 = R, Pout = 0, from the
+    // windkessel3 preset of circulation0D
+    outlet
+    {
+        type        lumped0D;
+        connection  carotid.out;
+        circuit
+        {
+            units       SI;
+            components
+            {
+                port    { type externalPort; direction outlet; }
+                wk      { type windkessel3; Rch 2.4875e8; C 1.7529e-10; R 1.8697e9; }
+            }
+            connections ( (port wk) );
+        }
+    }
+}
+
+probes
+{
+    mid     { vessel carotid; x midpoint; }
+}
+
+// ************************************************************************* //

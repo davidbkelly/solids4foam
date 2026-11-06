@@ -1,0 +1,7 @@
+#!/bin/bash
+# Remove the results of every case (each case's own Allclean).
+cd "$(dirname "$0")" || exit 1
+
+for script in */Allclean; do
+    [ -x "$script" ] && "./$script"
+done

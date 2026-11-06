@@ -1,0 +1,11 @@
+#!/bin/bash
+# Run the 3D-1D coupling cases (each case's own Allrun): the rigid-segment
+# benchmark, 1D-only and with pimpleFoam, then the tests from the literature.
+#   PYTHON=/path/to/python ./Allrun     a Python with numpy, scipy and matplotlib
+cd "$(dirname "$0")" || exit 1
+
+for case in rigidSegmentInertance rigidSegment3D dobroserdova2016 formaggia2007
+do
+    echo "=== $case"
+    "./$case/Allrun" || exit 1
+done

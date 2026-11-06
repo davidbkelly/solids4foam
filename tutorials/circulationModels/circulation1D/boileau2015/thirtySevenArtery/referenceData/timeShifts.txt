@@ -1,0 +1,10 @@
+# Boileau et al. (2015) IJNMBE 31:e02732, supporting data, Benchmark5_37ArteryNetwork/time_shifts.txt (converted from UTF-16)
+# site  tini [s]  tend [s]: in vitro time 0 is the 1D time tini
+AorticArchII     14.075 14.902
+ThoracicAortaII  14.09 14.917
+LSubclavianI     14.097 14.924
+RIliacFemoralII  14.162 14.989
+LUlnar           14.138 14.965
+RAnteriorTibial  14.200 15.027
+RUlnar           14.136 14.963
+Splenic          14.134 14.961

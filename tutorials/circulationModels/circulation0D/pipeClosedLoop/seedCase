@@ -1,0 +1,94 @@
+#!/bin/bash
+# seedCase <case>: build the seeded start of a case from the prelude next to it.
+#
+# A case starts at t0 (startTime) from the state of the dt = 1e-6 prelude run at
+# t0, with the older time levels the BDF scheme and the coupling need laid out
+# at the case's own time step: the velocity and flux at t0 - k dt (k = 1, 2, 3)
+# as the old-time fields U_0, U_0_0, U_0_0_0 and phi_0, phi_0_0, phi_0_0_0, and
+# the flows through the two ports at t0 - k dt as the history of the circuit
+# checkpoint. Every scheme then runs at its full order from the first step.
+: "${WM_PROJECT_DIR:?OpenFOAM environment not sourced}"
+
+[ -d "${1:-}" ] || { echo "usage: seedCase <case>" >&2; exit 1; }
+case=$(cd "$1" && pwd)
+pre=$case/../prelude
+[ -d "$pre/processor0" ] || { echo "No prelude results: run $pre/runCase first" >&2; exit 1; }
+
+get() { foamDictionary -entry "$1" -value "$2"; }
+nproc=$(get numberOfSubdomains "$case/system/decomposeParDict")
+dt=$(get deltaT "$case/system/controlDict")
+t0=$(get startTime "$case/system/controlDict")
+dtPre=$(get deltaT "$pre/system/controlDict")
+
+# Time directory name of t0 - k dt, as OpenFOAM writes it (timePrecision 12)
+tname() { awk -v t="$t0" -v dt="$dt" -v k="$1" 'BEGIN { printf "%.12g", t - k*dt }'; }
+
+# Port flows at t0 - k dt, k = 0..3, from the per-step records of the prelude
+# (the patch sums of phi, at 17 digits): the inlet port enters the domain, so its
+# flow is minus the sum of phi; the outlet port's is the sum.
+flows=$(awk -v t0="$t0" -v dt="$dt" -v dtp="$dtPre" '
+    FNR == 1 { f++ }
+    !/^#/ { v[f, int($1/dtp + 0.5)] = $2 }
+    END {
+        for (k = 0; k < 4; k++) {
+            n = int((t0 - k*dt)/dtp + 0.5)
+            if (!((1, n) in v) || !((2, n) in v)) { print "no record at step " n > "/dev/stderr"; exit 1 }
+            printf "%.17g %.17g ", -v[1, n], v[2, n]
+        }
+    }' "$pre/postProcessing/inletFlow/0/surfaceFieldValue.dat" \
+       "$pre/postProcessing/outletFlow/0/surfaceFieldValue.dat") || exit 1
+
+# Copy a field file, naming its object $3 in the (ASCII) header
+retitle() {
+    local n
+    n=$(grep -a -n -m1 '^// \* \* \*' "$1" | cut -d: -f1)
+    { head -n "$n" "$1" | sed "s/^\( *object *\)[A-Za-z_0-9]*;/\1$3;/"
+      tail -n +"$((n + 1))" "$1"; } > "$2"
+}
+
+t0name=$(tname 0)
+for ((p = 0; p < nproc; p++)); do
+    src=$pre/processor$p
+    dst=$case/processor$p
+    [ -d "$src/$t0name" ] || { echo "$src/$t0name is missing" >&2; exit 1; }
+    rm -rf "$dst"
+    mkdir -p "$dst/$t0name"
+    cp -r "$src/constant" "$dst/constant"
+    cp "$src/$t0name"/{U,p,phi} "$dst/$t0name/"
+    cp -r "$src/$t0name/uniform" "$dst/$t0name/uniform"
+
+    # Older time levels at the case's own time step
+    for k in 1 2 3; do
+        old=$src/$(tname $k)
+        [ -d "$old" ] || { echo "$old is missing" >&2; exit 1; }
+        sfx=$(printf '_0%.0s' $(seq 1 "$k"))
+        for f in U phi; do
+            retitle "$old/$f" "$dst/$t0name/$f$sfx" "$f$sfx"
+        done
+    done
+
+    # Time index and step of the case
+    awk -v dt="$dt" -v t0="$t0" '
+        /^value[ \t]/   { sub(/[^ \t]+;/, t0 ";") }
+        /^deltaT0?[ \t]/ { sub(/[^ \t]+;/, dt ";") }
+        /^index[ \t]/    { sub(/[^ \t]+;/, int(t0/dt + 0.5) ";") }
+        { print }' "$src/$t0name/uniform/time" > "$dst/$t0name/uniform/time"
+
+    # Circuit checkpoint: the state at t0, the flow history at the case's step
+    awk -v t0="$t0" -v dt="$dt" -v flows="$flows" '
+        BEGIN {
+            split(flows, q, " ")
+            for (k = 0; k < 4; k++) { qin[k] = q[2*k + 1]; qout[k] = q[2*k + 2] }
+        }
+        /^time[ \t]/      { print "time            " t0 ";"; next }
+        /^historyDt[ \t]/ { print "historyDt       3 { " dt " };"; next }
+        /^    (inlet|outlet)$/ { port = $1 }
+        /^        Q[ \t]/ { v = (port == "inlet") ? qin[0] : qout[0]; print "        Q               " v ";"; next }
+        /^        history[ \t]/ {
+            a = (port == "inlet") ? qin[1] " " qin[2] " " qin[3] : qout[1] " " qout[2] " " qout[3]
+            print "        history         3 ( " a " );"; next
+        }
+        { print }' "$src/$t0name/circulationState-circulationProperties" \
+        > "$dst/$t0name/circulationState-circulationProperties"
+done
+echo "seeded $case from $pre at t = $t0"

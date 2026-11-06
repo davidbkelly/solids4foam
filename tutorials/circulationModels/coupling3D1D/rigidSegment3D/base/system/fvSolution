@@ -1,0 +1,83 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      fvSolution;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+solvers
+{
+    // Tolerances on the normalised residual: not below about 1e-12, or the
+    // solvers run to maxIter on round-off while the pipe is still at rest
+    p
+    {
+        solver          GAMG;
+        tolerance       1e-12;
+        relTol          0;
+        smoother        GaussSeidel;
+        maxIter         200;
+    }
+
+    pFinal
+    {
+        $p;
+    }
+
+    "pcorr.*"
+    {
+        $p;
+    }
+
+    "(U|UFinal)"
+    {
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        tolerance       1e-12;
+        relTol          0;
+        maxIter         200;
+    }
+}
+
+// Implicit coupling: every outer corrector is one fixed-point iteration on
+// the interface flow; residualControl ends the step once it has converged.
+// Only p: the initial residual of U levels off (at 2e-5 here) whatever the
+// coupling, as the corrected U does not satisfy the predictor's equation, while
+// that of p falls to round-off with the interface flow.
+PIMPLE
+{
+    momentumPredictor       yes;
+    nOuterCorrectors        50;
+    nCorrectors             1;
+    nNonOrthogonalCorrectors 0;
+
+    residualControl
+    {
+        p
+        {
+            tolerance       1e-10;
+            relTol          0;
+        }
+    }
+}
+
+relaxationFactors
+{
+    equations
+    {
+        ".*"            1;
+    }
+}
+
+// ************************************************************************* //

@@ -1,0 +1,18 @@
+#!/bin/bash
+# The rigid-segment 3D-1D benchmark, one case: a pimpleFoam pipe coupled at
+# both ends to 1D vessels (implicit, order 2, dt = 0.5 ms; about 2 minutes),
+# and the 1D-only run with the pipe as an inertance node; then the comparison
+# with the closed form. ./Allrun-sweep runs the whole study.
+#   PYTHON=/path/to/python ./Allrun     a Python with numpy and scipy (and matplotlib)
+cd "$(dirname "$0")" || exit 1
+: "${WM_PROJECT_DIR:?OpenFOAM environment not sourced}"
+
+# Source solids4Foam scripts (on macOS, this keeps the OpenFOAM libraries findable)
+source solids4FoamScripts.sh
+
+# The circulation models are currently only built for OpenFOAM.com
+solids4Foam::caseDoesNotRunWithFoamExtend
+solids4Foam::caseDoesNotRunWithOpenFOAMOrg
+
+"${PYTHON:-python3}" sweep.py --one || exit 1
+"${PYTHON:-python3}" analyse.py || echo "analyse.py failed: it needs numpy and scipy"

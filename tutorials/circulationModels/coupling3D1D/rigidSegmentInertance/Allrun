@@ -1,0 +1,37 @@
+#!/bin/bash
+# Run the rigid segment as an inertance (1D, no mesh), then compare it with the
+# linear closed form: the base case and the refinement order/n<N> at fixed
+# CFL, both with the inflow of Boileau Eq. 14 x 1e-3 (linear).
+#   ./Allrun
+#   PYTHON=/path/to/python ./Allrun     a Python with numpy and scipy (and matplotlib)
+cd "$(dirname "$0")" || exit 1
+: "${WM_PROJECT_DIR:?OpenFOAM environment not sourced}"
+
+# Source solids4Foam scripts (on macOS, this keeps the OpenFOAM libraries findable)
+source solids4FoamScripts.sh
+
+# The circulation models are currently only built for OpenFOAM.com
+solids4Foam::caseDoesNotRunWithFoamExtend
+solids4Foam::caseDoesNotRunWithOpenFOAMOrg
+
+echo "Running base"
+circulation1DFoam > log.circulation1DFoam 2>&1 \
+    || { echo "circulation1DFoam failed:"; tail -15 log.circulation1DFoam; exit 1; }
+
+for n in 200 400 800 1600 3200 6400; do
+    dir=order/n$n
+    mkdir -p "$dir"
+    cp -r constant system "$dir"/
+    props=$dir/constant/circulation1DProperties
+    { foamDictionary -entry vesselDefaults/nCells -set "$n" "$props" \
+   && foamDictionary -entry nodes/inlet/flowRate/scale -set 1e-3 "$props" \
+   && foamDictionary -entry probes -remove "$props" \
+   && foamDictionary -entry deltaT -set 0.6 "$dir"/system/controlDict; \
+    } > /dev/null 2>&1 || { echo "Could not set up $dir"; exit 1; }
+
+    echo "Running $dir"
+    (cd "$dir" && circulation1DFoam > log.circulation1DFoam 2>&1) \
+        || { echo "$dir failed:"; tail -15 "$dir"/log.circulation1DFoam; exit 1; }
+done
+
+"${PYTHON:-python3}" analyse.py || echo "analyse.py failed: it needs numpy and scipy"

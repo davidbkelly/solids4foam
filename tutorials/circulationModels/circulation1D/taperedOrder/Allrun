@@ -1,0 +1,29 @@
+#!/bin/bash
+# Order of accuracy in a tapered vessel: refine at fixed CFL, then fit the
+# orders from the differences between successive meshes.
+#   ./Allrun            runs n<N>, then analyse.py
+#   PYTHON=/path/to/python ./Allrun     a Python with numpy
+cd "$(dirname "$0")" || exit 1
+: "${WM_PROJECT_DIR:?OpenFOAM environment not sourced}"
+
+# Source solids4Foam scripts (on macOS, this keeps the OpenFOAM libraries findable)
+source solids4FoamScripts.sh
+
+# The circulation models are currently only built for OpenFOAM.com
+solids4Foam::caseDoesNotRunWithFoamExtend
+solids4Foam::caseDoesNotRunWithOpenFOAMOrg
+
+for n in 750 1500 3000 6000 12000 24000; do
+    dir=n$n
+    mkdir -p "$dir"
+    cp -r constant system "$dir"/
+    foamDictionary -entry vessels/tube/nCells -set "$n" \
+        "$dir"/constant/circulation1DProperties > /dev/null 2>&1 \
+        || { echo "Could not set up $dir"; exit 1; }
+
+    echo "Running $dir"
+    (cd "$dir" && circulation1DFoam > log.circulation1DFoam 2>&1) \
+        || { echo "$dir failed:"; tail -15 "$dir"/log.circulation1DFoam; exit 1; }
+done
+
+"${PYTHON:-python3}" analyse.py || echo "analyse.py failed: it needs numpy"

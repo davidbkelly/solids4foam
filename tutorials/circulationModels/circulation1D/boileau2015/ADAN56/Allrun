@@ -1,0 +1,19 @@
+#!/bin/bash
+# Run this case (1D, no mesh), then compare it with the reference data.
+#   ./Allrun            results: postProcessing/circulation1D/0/, plots/
+#   PYTHON=/path/to/python ./Allrun     a Python with numpy and matplotlib
+cd "$(dirname "$0")" || exit 1
+: "${WM_PROJECT_DIR:?OpenFOAM environment not sourced}"
+
+# Source solids4Foam scripts (on macOS, this keeps the OpenFOAM libraries findable)
+source solids4FoamScripts.sh
+
+# The circulation models are currently only built for OpenFOAM.com
+solids4Foam::caseDoesNotRunWithFoamExtend
+solids4Foam::caseDoesNotRunWithOpenFOAMOrg
+
+circulation1DFoam > log.circulation1DFoam 2>&1 \
+    || { echo "circulation1DFoam failed:"; tail -15 log.circulation1DFoam; exit 1; }
+grep '^Steps' log.circulation1DFoam
+
+"${PYTHON:-python3}" plot.py || echo "plot.py failed: it needs numpy and matplotlib"

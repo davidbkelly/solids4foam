@@ -1,0 +1,161 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      circulation1DProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Aortic bifurcation, Boileau et al. (2015) section 4.4, Table VII: the
+// abdominal aorta splitting into two identical iliac arteries, each ending in
+// a three-element Windkessel. From rest (P = 0, A = A0, Q = 0).
+
+fluid
+{
+    rho             1060;
+    mu              4e-3;
+    profileOrder    9;
+    alpha           1;
+}
+
+numerics
+{
+    CFL             0.5;            // the TVD bound of the limited reconstruction
+    flux            HLL;
+    limiter         MC;
+    timeScheme      SSPRK2;
+}
+
+vesselDefaults
+{
+    diastolicPressure   9466.67;    // 9.4666... kPa
+    externalPressure    0;
+    initialPressure     0;
+}
+
+vessels
+{
+    aorta
+    {
+        length              0.086;
+        nCells              86;         // dx = 1 mm
+        radius              0.0086;
+        wallThickness       1.032e-3;
+        youngsModulus       500e3;
+    }
+    iliacL
+    {
+        length              0.085;
+        nCells              85;
+        radius              0.006;
+        wallThickness       0.72e-3;
+        youngsModulus       700e3;
+    }
+    iliacR
+    {
+        length              0.085;
+        nCells              85;
+        radius              0.006;
+        wallThickness       0.72e-3;
+        youngsModulus       700e3;
+    }
+}
+
+nodes
+{
+    // referenceData/inflow.txt [ml/s], period T, as m3/s
+    inlet
+    {
+        type        flowInlet;
+        connection  aorta.in;
+        flowRate
+        {
+            type        expression;
+            variables   ( "T = 1.1" );
+            expression
+            #{
+                1e-6*10e5*(7.9853e-06+2.6617e-05*sin(2*pi()*arg()/T+0.29498)
+                +2.3616e-05*sin(4*pi()*arg()/T-1.1403)
+                -1.9016e-05*sin(6*pi()*arg()/T+0.40435)
+                -8.5899e-06*sin(8*pi()*arg()/T-1.1892)
+                -2.436e-06*sin(10*pi()*arg()/T-1.4918)
+                +1.4905e-06*sin(12*pi()*arg()/T+1.0536)
+                +1.3581e-06*sin(14*pi()*arg()/T-0.47666)
+                -6.3031e-07*sin(16*pi()*arg()/T+0.93768)
+                -4.5335e-07*sin(18*pi()*arg()/T-0.79472)
+                -4.5184e-07*sin(20*pi()*arg()/T-1.4095)
+                -5.6583e-07*sin(22*pi()*arg()/T-1.3629)
+                +4.9522e-07*sin(24*pi()*arg()/T+0.52495)
+                +1.3049e-07*sin(26*pi()*arg()/T-0.97261)
+                -4.1072e-08*sin(28*pi()*arg()/T-0.15685)
+                -2.4182e-07*sin(30*pi()*arg()/T-1.4052)
+                -6.6217e-08*sin(32*pi()*arg()/T-1.3785)
+                -1.5511e-07*sin(34*pi()*arg()/T-1.2927)
+                +2.2149e-07*sin(36*pi()*arg()/T+0.68178)
+                +6.7621e-08*sin(38*pi()*arg()/T-0.98825)
+                +1.0973e-07*sin(40*pi()*arg()/T+1.4327)
+                -2.5559e-08*sin(42*pi()*arg()/T-1.2372)
+                -3.5079e-08*sin(44*pi()*arg()/T+0.2328))
+            #};
+        }
+    }
+
+    bifurcation
+    {
+        type        junction;
+        connections ( aorta.out iliacL.in iliacR.in );
+    }
+
+    // Windkessels (Boileau Eq. 9): R1 = Rch, C, R2 = R, Pout = 0
+    outletL
+    {
+        type        lumped0D;
+        connection  iliacL.out;
+        circuit
+        {
+            units       SI;
+            components
+            {
+                port    { type externalPort; direction outlet; }
+                wk      { type windkessel3; Rch 6.8123e7; C 3.6664e-10; R 3.1013e9; }
+            }
+            connections ( (port wk) );
+        }
+    }
+
+    outletR
+    {
+        type        lumped0D;
+        connection  iliacR.out;
+        circuit
+        {
+            units       SI;
+            components
+            {
+                port    { type externalPort; direction outlet; }
+                wk      { type windkessel3; Rch 6.8123e7; C 3.6664e-10; R 3.1013e9; }
+            }
+            connections ( (port wk) );
+        }
+    }
+}
+
+probes
+{
+    aortaMid    { vessel aorta;  x midpoint; }
+    aortaEnd    { vessel aorta;  x out; }
+    iliacMid    { vessel iliacL; x midpoint; }
+}
+
+// ************************************************************************* //

@@ -1,0 +1,19 @@
+#!/bin/bash
+# The rigid-segment 3D-1D benchmark at fourth order in space and time: vessels
+# with the k-exact reconstruction (degree 3) and RK4, the pipe with BDF 4, dx
+# and dt refined together for implicit order 4, explicit order 4, implicit
+# orders 2 and 1; 17 serial pimpleFoam cases, NPROC (default 6) at a time,
+# about 15 minutes; then the analysis (highOrder.md, plots/highOrder3D1D.png).
+#   NPROC=8 PYTHON=/path/to/python ./Allrun-highOrder
+cd "$(dirname "$0")" || exit 1
+: "${WM_PROJECT_DIR:?OpenFOAM environment not sourced}"
+
+# Source solids4Foam scripts (on macOS, this keeps the OpenFOAM libraries findable)
+source solids4FoamScripts.sh
+
+# The circulation models are currently only built for OpenFOAM.com
+solids4Foam::caseDoesNotRunWithFoamExtend
+solids4Foam::caseDoesNotRunWithOpenFOAMOrg
+
+"${PYTHON:-python3}" highOrder.py run "${NPROC:-6}" \
+    || echo "highOrder.py failed: it needs numpy (and matplotlib)"

@@ -1,0 +1,37 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// At t = 0.6 s the reflected pulse is 1.4 m back up the proximal vessel and the
+// transmitted one 1.4 m down the distal vessel: the profiles then hold both
+
+application     circulation1DFoam;
+
+startFrom       startTime;
+startTime       0;
+stopAt          endTime;
+endTime         0.6;
+deltaT          2e-4;          // output interval; the solver sub-steps at its CFL step
+
+writeControl    runTime;
+writeInterval   0.6;    // profiles and restart state
+
+writePrecision  10;
+timePrecision   6;
+
+// ************************************************************************* //

@@ -1,0 +1,93 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      circulation1DProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Boileau et al. (2015) section 4.1, Table II: a Gaussian flow pulse in a 10 m
+// reflection-free vessel, inviscid blood. c0 = 6.17 m/s at A0 = pi cm2, and
+// Z0 = rho c0/A0, so the inflow peak of 1 ml/s is a pressure pulse of 20.6 Pa.
+
+fluid
+{
+    rho             1050;
+    mu              0;
+    profileOrder    9;              // zeta: KR = 2 pi (zeta + 2) mu/rho
+    alpha           1;
+}
+
+// The pulse is smooth and its amplitude small: the unlimited reconstruction
+// (limiter none) does not clip its peak. dx = 1.25 mm keeps the peak decay of
+// this second-order scheme below 1% over 9 m (see README.md).
+numerics
+{
+    CFL             0.5;
+    flux            HLL;
+    limiter         none;
+    timeScheme      SSPRK2;
+}
+
+vessels
+{
+    tube
+    {
+        length              10;
+        nCells              8000;
+        radius              0.01;       // A0 = Ad = pi cm2 (Pd = 0)
+        wallThickness       1.5e-3;
+        youngsModulus       400e3;
+        diastolicPressure   0;
+        externalPressure    0;
+        initialPressure     0;
+    }
+}
+
+nodes
+{
+    inlet
+    {
+        type        flowInlet;
+        connection  tube.in;
+        flowRate                        // Boileau Eq. 14 [m3/s]
+        {
+            type        expression;
+            expression  #{ 1e-6*exp(-1e4*sqr(arg() - 0.05)) #};
+        }
+    }
+
+    outlet
+    {
+        type        absorbing;
+        connection  tube.out;
+    }
+}
+
+// The peak decay is measured at these points
+probes
+{
+    x0     { vessel tube; x 0; }
+    x1     { vessel tube; x 1; }
+    x2     { vessel tube; x 2; }
+    x3     { vessel tube; x 3; }
+    x4     { vessel tube; x 4; }
+    x5     { vessel tube; x 5; }
+    x6     { vessel tube; x 6; }
+    x7     { vessel tube; x 7; }
+    x8     { vessel tube; x 8; }
+    x9     { vessel tube; x 9; }
+}
+
+// ************************************************************************* //

@@ -1,0 +1,5 @@
+#!/bin/bash
+# Remove every run
+cd "$(dirname "$0")" || exit 1
+rm -rf n[0-9]*
+rm -f log log.* orders.md

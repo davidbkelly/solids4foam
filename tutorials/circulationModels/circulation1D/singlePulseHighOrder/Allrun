@@ -1,0 +1,66 @@
+#!/bin/bash
+# Order of accuracy of the higher-order 1D scheme (k-exact reconstruction and
+# RK4): the single pulse refined at fixed CFL for each set below, against the
+# finest run of the set; then analyse.py.
+#   ./Allrun                            NPROC (default 4) runs at a time
+#   PYTHON=/path/to/python ./Allrun     a Python with numpy (and matplotlib)
+#
+#   set               reconstruction        time      expected order
+#   MUSCL_SSPRK2      MUSCL, limiter none   SSPRK2    2
+#   kExact1_SSPRK2    kExact, degree 1      SSPRK2    2
+#   kExact2_SSPRK3    kExact, degree 2      SSPRK3    3
+#   kExact3_RK4       kExact, degree 3      RK4       4
+#   kExact3_RK4_visc  as kExact3_RK4 with friction (mu = 4e-3): the Gauss source
+cd "$(dirname "$0")" || exit 1
+: "${WM_PROJECT_DIR:?OpenFOAM environment not sourced}"
+
+# Source solids4Foam scripts (on macOS, this keeps the OpenFOAM libraries findable)
+source solids4FoamScripts.sh
+
+# The circulation models are currently only built for OpenFOAM.com
+solids4Foam::caseDoesNotRunWithFoamExtend
+solids4Foam::caseDoesNotRunWithOpenFOAMOrg
+
+nCells="250 500 1000 2000 4000 8000 32000"
+
+setup() {   # set reconstruction polynomialOrder timeScheme mu n
+    local dir=$1/n$6 props
+    mkdir -p "$dir"
+    cp -r constant system "$dir"/
+    props=$dir/constant/circulation1DProperties
+    { foamDictionary -entry numerics/reconstruction -set "$2" "$props" \
+   && foamDictionary -entry numerics/polynomialOrder -set "$3" "$props" \
+   && foamDictionary -entry numerics/timeScheme -set "$4" "$props" \
+   && foamDictionary -entry fluid/mu -set "$5" "$props" \
+   && foamDictionary -entry vessels/tube/nCells -set "$6" "$props"; \
+    } > /dev/null 2>&1 || { echo "Could not set up $dir"; exit 1; }
+    echo "$dir"
+}
+
+dirs=$(
+for n in $nCells; do
+    setup MUSCL_SSPRK2     MUSCL  2 SSPRK2 0     "$n"
+    setup kExact1_SSPRK2   kExact 1 SSPRK2 0     "$n"
+    setup kExact2_SSPRK3   kExact 2 SSPRK3 0     "$n"
+    setup kExact3_RK4      kExact 3 RK4    0     "$n"
+    setup kExact3_RK4_visc kExact 3 RK4    4e-3  "$n"
+done
+) || exit 1
+
+# Largest runs first, NPROC at a time. Background jobs of this shell rather
+# than xargs: on macOS, xargs and sh are protected binaries that drop
+# DYLD_LIBRARY_PATH, and the runs would not find the OpenFOAM libraries.
+run() {
+    (cd "$1" && circulation1DFoam > log.circulation1DFoam 2>&1) \
+        && echo "done $1" || echo "FAILED $1"
+}
+i=0
+for d in $(echo "$dirs" | awk -F/n '{print $2, $0}' | sort -k1,1nr | cut -d' ' -f2)
+do
+    run "$d" &
+    i=$((i + 1))
+    [ $((i % ${NPROC:-4})) -eq 0 ] && wait
+done
+wait
+
+"${PYTHON:-python3}" analyse.py || echo "analyse.py failed: it needs numpy"

@@ -1,0 +1,205 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      circulation1DProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// The 37-artery network of Boileau et al. (2015) section 4.5, written by
+// makeNetwork.py from referenceData/mesh.txt, dx 0.002 m:
+// 37 segments, tapered ones as tapered vessels.
+// Do not edit by hand: change makeNetwork.py and run it again.
+
+fluid
+{
+    rho             1050;
+    mu              0.0025;
+    profileOrder    9;
+    alpha           1;
+}
+
+numerics
+{
+    CFL             0.5;
+    flux            HLL;
+    limiter         MC;
+    timeScheme      SSPRK2;
+}
+
+// Every vessel: E 1.2e+06 Pa, Pd = Pext = 0 (A = Ad at P = 0), from rest
+vesselDefaults
+{
+    youngsModulus       1.2e+06;
+    diastolicPressure   0;
+    externalPressure    0;
+    initialPressure     0;
+}
+
+vessels
+{
+    s01      { length 0.036; nCells 18; radiusProximal 0.0144; radiusDistal 0.013; wallThickness 0.00051; }
+    s02      { length 0.028; nCells 14; radiusProximal 0.011; radiusDistal 0.00729; wallThickness 0.00035; }
+    s03      { length 0.145; nCells 72; radiusProximal 0.00537; radiusDistal 0.00386; wallThickness 0.00028; }
+    s04      { length 0.218; nCells 109; radiusProximal 0.00436; radiusDistal 0.00334; wallThickness 0.00027; }
+    s05      { length 0.165; nCells 82; radiusProximal 0.00334; radiusDistal 0.00278; wallThickness 0.00016; }
+    s06      { length 0.235; nCells 117; radius 0.00207; wallThickness 0.00015; }
+    s07      { length 0.177; nCells 88; radius 0.0021; wallThickness 0.00021; }
+    s08      { length 0.021; nCells 10; radiusProximal 0.013; radiusDistal 0.0125; wallThickness 0.0005; }
+    s09      { length 0.178; nCells 89; radiusProximal 0.00558; radiusDistal 0.00373; wallThickness 0.00031; }
+    s10      { length 0.029; nCells 14; radiusProximal 0.0125; radiusDistal 0.0118; wallThickness 0.00041; }
+    s11      { length 0.227; nCells 114; radiusProximal 0.00442; radiusDistal 0.00339; wallThickness 0.00022; }
+    s12      { length 0.175; nCells 87; radiusProximal 0.00339; radiusDistal 0.00284; wallThickness 0.00017; }
+    s13      { length 0.245; nCells 122; radius 0.00207; wallThickness 0.00021; }
+    s14      { length 0.191; nCells 96; radius 0.00207; wallThickness 0.00016; }
+    s15      { length 0.056; nCells 28; radiusProximal 0.0118; radiusDistal 0.011; wallThickness 0.00043; }
+    s16      { length 0.195; nCells 98; radiusProximal 0.00412; radiusDistal 0.00322; wallThickness 0.00027; }
+    s17      { length 0.072; nCells 36; radiusProximal 0.011; radiusDistal 0.00926; wallThickness 0.00034; }
+    s18      { length 0.038; nCells 19; radius 0.00397; wallThickness 0.0002; }
+    s19      { length 0.013; nCells 6; radius 0.00431; wallThickness 0.00125; }
+    s20      { length 0.191; nCells 96; radius 0.00183; wallThickness 0.00013; }
+    s21      { length 0.198; nCells 99; radius 0.00192; wallThickness 0.00011; }
+    s22      { length 0.186; nCells 93; radiusProximal 0.00331; radiusDistal 0.00289; wallThickness 0.00021; }
+    s23      { length 0.062; nCells 31; radiusProximal 0.00926; radiusDistal 0.00801; wallThickness 0.00033; }
+    s24      { length 0.12; nCells 60; radius 0.00259; wallThickness 0.00019; }
+    s25      { length 0.007; nCells 4; radius 0.0079; wallThickness 0.00035; }
+    s26      { length 0.118; nCells 59; radius 0.00255; wallThickness 0.00016; }
+    s27      { length 0.104; nCells 52; radiusProximal 0.0078; radiusDistal 0.00588; wallThickness 0.0003; }
+    s28      { length 0.205; nCells 102; radiusProximal 0.0039; radiusDistal 0.00338; wallThickness 0.00021; }
+    s29      { length 0.216; nCells 108; radiusProximal 0.00338; radiusDistal 0.00231; wallThickness 0.00015; }
+    s30      { length 0.206; nCells 103; radiusProximal 0.00231; radiusDistal 0.0021; wallThickness 0.0002; }
+    s31      { length 0.201; nCells 100; radiusProximal 0.00402; radiusDistal 0.00334; wallThickness 0.0002; }
+    s32      { length 0.195; nCells 98; radiusProximal 0.00334; radiusDistal 0.00226; wallThickness 0.00016; }
+    s33      { length 0.207; nCells 103; radiusProximal 0.00226; radiusDistal 0.00212; wallThickness 0.00013; }
+    s34      { length 0.163; nCells 82; radius 0.00155; wallThickness 0.00015; }
+    s35      { length 0.151; nCells 76; radius 0.00153; wallThickness 0.00012; }
+    s36      { length 0.149; nCells 74; radius 0.00158; wallThickness 0.00011; }
+    s37      { length 0.126; nCells 63; radius 0.00155; wallThickness 0.0001; }
+}
+
+nodes
+{
+    inlet
+    {
+        type        flowInlet;
+        connection  s01.in;
+        flowRate
+        {
+            type        expression;
+            variables   ( "T = 0.827" );
+            expression
+            #{
+                1e-6*1e6*(3.1199+7.7982*sin(2*pi()*arg()/T+0.5769)
+                +4.1228*sin(4*pi()*arg()/T-0.8738)-1.0611*sin(6*pi()*arg()/T+0.7240)
+                +0.7605*sin(8*pi()*arg()/T-0.6387)
+                -0.9148*sin(10*pi()*arg()/T+1.1598)
+                +0.4924*sin(12*pi()*arg()/T-1.0905)
+                -0.5580*sin(14*pi()*arg()/T+1.042)
+                +0.3280*sin(16*pi()*arg()/T-0.5570)
+                -0.3941*sin(18*pi()*arg()/T+1.2685)
+                +0.2833*sin(20*pi()*arg()/T+0.6702)
+                +0.2272*sin(22*pi()*arg()/T-1.4983)
+                +0.2249*sin(24*pi()*arg()/T+0.9924)
+                +0.2589*sin(26*pi()*arg()/T-1.5616)
+                -0.1460*sin(28*pi()*arg()/T-1.3106)
+                +0.2141*sin(30*pi()*arg()/T-1.1306)
+                -0.1253*sin(32*pi()*arg()/T+0.1552)
+                +0.1321*sin(34*pi()*arg()/T-1.5595)
+                -0.1399*sin(36*pi()*arg()/T+0.4223)
+                -0.0324*sin(38*pi()*arg()/T+0.7811)
+                -0.1211*sin(40*pi()*arg()/T+1.0729))/1000/60
+            #};
+        }
+    }
+    n01 { type junction; connections (s01.out s02.in s08.in); }
+    n02 { type junction; connections (s02.out s03.in s04.in); }
+    out03 { type resistance; connection s03.out; R 2.67e+09; Pout 432.6; }
+    n04 { type junction; connections (s04.out s05.in); }
+    n05 { type junction; connections (s05.out s06.in s07.in); }
+    out06 { type resistance; connection s06.out; R 3.92e+09; Pout 432.6; }
+    out07 { type resistance; connection s07.out; R 3.24e+09; Pout 432.6; }
+    n08 { type junction; connections (s08.out s09.in s10.in); }
+    out09 { type resistance; connection s09.out; R 3.11e+09; Pout 432.6; }
+    n10 { type junction; connections (s10.out s11.in s15.in); }
+    n11 { type junction; connections (s11.out s12.in); }
+    n12 { type junction; connections (s12.out s13.in s14.in); }
+    out13 { type resistance; connection s13.out; R 3.74e+09; Pout 432.6; }
+    out14 { type resistance; connection s14.out; R 3.77e+09; Pout 432.6; }
+    n15 { type junction; connections (s15.out s16.in s17.in); }
+    out16 { type resistance; connection s16.out; R 2.59e+09; Pout 432.6; }
+    n17 { type junction; connections (s17.out s18.in s23.in); }
+    n18 { type junction; connections (s18.out s19.in s22.in); }
+    n19 { type junction; connections (s19.out s20.in s21.in); }
+    out20 { type resistance; connection s20.out; R 3.54e+09; Pout 432.6; }
+    out21 { type resistance; connection s21.out; R 4.24e+09; Pout 432.6; }
+    out22 { type resistance; connection s22.out; R 3.75e+09; Pout 432.6; }
+    n23 { type junction; connections (s23.out s24.in s25.in); }
+    out24 { type resistance; connection s24.out; R 3.46e+09; Pout 432.6; }
+    n25 { type junction; connections (s25.out s26.in s27.in); }
+    out26 { type resistance; connection s26.out; R 3.45e+09; Pout 432.6; }
+    n27 { type junction; connections (s27.out s28.in s31.in); }
+    n28 { type junction; connections (s28.out s29.in); }
+    n29 { type junction; connections (s29.out s30.in); }
+    n30 { type junction; connections (s30.out s34.in s35.in); }
+    n31 { type junction; connections (s31.out s32.in); }
+    n32 { type junction; connections (s32.out s33.in); }
+    n33 { type junction; connections (s33.out s36.in s37.in); }
+    out34 { type resistance; connection s34.out; R 5.16e+09; Pout 432.6; }
+    out35 { type resistance; connection s35.out; R 5.65e+09; Pout 432.6; }
+    out36 { type resistance; connection s36.out; R 4.59e+09; Pout 432.6; }
+    out37 { type resistance; connection s37.out; R 3.16e+09; Pout 432.6; }
+}
+
+probes
+{
+    seg01            { vessel s01; x 0.018; }
+    seg02            { vessel s02; x 0.014; }
+    seg03            { vessel s03; x 0.0725; }
+    seg04            { vessel s04; x 0.109; }
+    seg05            { vessel s05; x 0.0825; }
+    seg06            { vessel s06; x 0.1175; }
+    RUlnar           { vessel s07; x 0.0885; }
+    seg08            { vessel s08; x 0.0105; }
+    seg09            { vessel s09; x 0.089; }
+    AorticArchII     { vessel s10; x 0.0145; }
+    LSubclavianI     { vessel s11; x 0.1135; }
+    seg12            { vessel s12; x 0.0875; }
+    seg13            { vessel s13; x 0.1225; }
+    LUlnar           { vessel s14; x 0.0955; }
+    seg15            { vessel s15; x 0.028; }
+    seg16            { vessel s16; x 0.0975; }
+    ThoracicAortaII  { vessel s17; x 0.036; }
+    seg18            { vessel s18; x 0.019; }
+    seg19            { vessel s19; x 0.0065; }
+    Splenic          { vessel s20; x 0.0955; }
+    seg21            { vessel s21; x 0.099; }
+    seg22            { vessel s22; x 0.093; }
+    seg23            { vessel s23; x 0.031; }
+    seg24            { vessel s24; x 0.06; }
+    seg25            { vessel s25; x 0.0035; }
+    seg26            { vessel s26; x 0.059; }
+    seg27            { vessel s27; x 0.052; }
+    seg28            { vessel s28; x 0.1025; }
+    RIliacFemoralII  { vessel s29; x 0.108; }
+    seg30            { vessel s30; x 0.103; }
+    seg31            { vessel s31; x 0.1005; }
+    seg32            { vessel s32; x 0.0975; }
+    seg33            { vessel s33; x 0.1035; }
+    RAnteriorTibial  { vessel s34; x 0.0815; }
+    seg35            { vessel s35; x 0.0755; }
+    seg36            { vessel s36; x 0.0745; }
+    seg37            { vessel s37; x 0.063; }
+}
+
+// ************************************************************************* //

@@ -1,0 +1,44 @@
+#!/bin/bash
+# Order of accuracy in space and time: refine the inviscid single pulse at fixed
+# CFL, for two amplitudes of the inflow, then fit the orders.
+#   ./Allrun            runs linear/n<N> and full/n<N>, then analyse.py
+#   PYTHON=/path/to/python ./Allrun     a Python with numpy (and matplotlib)
+#
+#   linear   inflow scaled by 1e-3: the pulse is linear to about 1e-6, so its
+#            error against the linear solution is the discretisation error
+#   full     the inflow of Boileau Eq. 14: the error against the linear
+#            solution levels off at the nonlinear steepening of the pulse
+cd "$(dirname "$0")" || exit 1
+: "${WM_PROJECT_DIR:?OpenFOAM environment not sourced}"
+
+# Source solids4Foam scripts (on macOS, this keeps the OpenFOAM libraries findable)
+source solids4FoamScripts.sh
+
+# The circulation models are currently only built for OpenFOAM.com
+solids4Foam::caseDoesNotRunWithFoamExtend
+solids4Foam::caseDoesNotRunWithOpenFOAMOrg
+
+nCells="500 1000 2000 4000 8000 16000 32000"
+
+for set in linear full; do
+    case $set in
+        linear) scale=1e-3 ;;
+        full)   scale=1 ;;
+    esac
+
+    for n in $nCells; do
+        dir=$set/n$n
+        mkdir -p "$dir"
+        cp -r constant system "$dir"/
+        props=$dir/constant/circulation1DProperties
+        { foamDictionary -entry vessels/tube/nCells -set "$n" "$props" \
+       && foamDictionary -entry nodes/inlet/flowRate/scale -set "$scale" "$props"; \
+        } > /dev/null 2>&1 || { echo "Could not set up $dir"; exit 1; }
+
+        echo "Running $dir"
+        (cd "$dir" && circulation1DFoam > log.circulation1DFoam 2>&1) \
+            || { echo "$dir failed:"; tail -15 "$dir"/log.circulation1DFoam; exit 1; }
+    done
+done
+
+"${PYTHON:-python3}" analyse.py || echo "analyse.py failed: it needs numpy"

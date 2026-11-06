@@ -1,0 +1,8 @@
+#!/bin/bash
+# Remove the results of every 0D and 0D-3D coupling tutorial (each case's own
+# Allclean). Case set-up files are never touched.
+cd "$(dirname "$0")" || exit 1
+
+for script in */Allclean; do
+    [ -x "$script" ] && "./$script"
+done

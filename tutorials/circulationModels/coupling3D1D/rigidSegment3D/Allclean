@@ -1,0 +1,5 @@
+#!/bin/bash
+# Remove every run, the plots and the results
+cd "$(dirname "$0")" || exit 1
+rm -rf runs plots __pycache__
+rm -f log log.* results.md

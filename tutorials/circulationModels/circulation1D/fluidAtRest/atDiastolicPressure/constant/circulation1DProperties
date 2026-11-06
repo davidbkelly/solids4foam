@@ -1,0 +1,68 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      circulation1DProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Fluid at rest (spec section 7.2.2): a network of tapered vessels at uniform
+// pressure at the diastolic pressure Pd = 10 kPa, so A = Ad(x), with no flow. It must stay at rest to round-off.
+//
+//     inlet -> taperA ->+-> taperB -> outletB
+//                       +-> branch -> outletC
+//
+// taperA narrows 3:1 in radius, with the wall thickness of Boileau Eq. 17.
+
+fluid
+{
+    rho             1040;
+    mu              4e-3;
+    profileOrder    2;
+    alpha           1;
+}
+
+numerics
+{
+    CFL             0.5;
+    flux            HLL;
+    limiter         MC;
+    timeScheme      SSPRK2;
+}
+
+vesselDefaults
+{
+    youngsModulus       225e3;
+    diastolicPressure   10000;
+    externalPressure    0;
+    initialPressure     10000;
+    wallThicknessModel  ADAN56;
+}
+
+vessels
+{
+    taperA  { length 0.5;  nCells 100; radiusProximal 0.015; radiusDistal 0.005; }
+    taperB  { length 0.3;  nCells 60;  radiusProximal 0.004; radiusDistal 0.0025; }
+    branch  { length 0.2;  nCells 40;  radius 0.003; }
+}
+
+nodes
+{
+    inlet   { type flowInlet;  connection taperA.in; flowRate constant 0; }
+    split   { type junction;   connections (taperA.out taperB.in branch.in); }
+    outletB { type resistance; connection taperB.out; R 1e9; Pout 10000; }
+    outletC { type resistance; connection branch.out; R 1e9; Pout 10000; }
+}
+
+// ************************************************************************* //

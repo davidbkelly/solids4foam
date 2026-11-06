@@ -20,9 +20,9 @@ LV { type coupledDomain;  provider external;               // 3D
 connections ( (LV SAS SAT SAR SCP SVN RA TV RV PV PAS PAT PAR PCP PVN LA LV) );
 ```
 
-The CFD coupling tutorials in `tutorials/circulationModels` (`pipeWindkessel`,
-`pipeClosedLoop`) use the simplest case of this, an `externalPort` attached to a
-circuit, bound to a patch by name.
+The CFD coupling tutorials in `tutorials/circulationModels/circulation0D`
+(`pipeWindkessel`, `pipeClosedLoop`) use the simplest case of this, an
+`externalPort` attached to a circuit, bound to a patch by name.
 
 ## What crosses the interface
 

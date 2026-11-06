@@ -110,3 +110,26 @@ compile_flags.txt
 .cache/
 
 # end-of-file
+
+# Reference papers for the 3D-1D coupling work (copyrighted, not for the repository)
+3D - 1D Coupling/
+
+# circulationModels tutorials: everything the Allrun scripts regenerate
+tutorials/circulationModels/**/postProcessing/
+tutorials/circulationModels/**/processor*/
+tutorials/circulationModels/**/runs/
+tutorials/circulationModels/**/log.*
+tutorials/circulationModels/**/[1-9]*/
+tutorials/circulationModels/**/0.[0-9]*/
+tutorials/circulationModels/**/constant/polyMesh/
+tutorials/circulationModels/**/constant/*/polyMesh/
+tutorials/circulationModels/**/*.foam
+tutorials/circulationModels/**/__pycache__/
+tutorials/circulationModels/circulation0D/pipeClosedLoop/explicit/
+tutorials/circulationModels/circulation0D/pipeClosedLoop/implicit/
+tutorials/circulationModels/circulation0D/pipeWindkessel/explicit/
+tutorials/circulationModels/circulation0D/pipeWindkessel/implicit/
+
+# Boileau et al. (2015) paper and supplementary material (copyrighted)
+src/circulationModels/circulation1D/*.pdf
+src/circulationModels/circulation1D/SuppMaterial_1DBenchmark_Boileau_etal/

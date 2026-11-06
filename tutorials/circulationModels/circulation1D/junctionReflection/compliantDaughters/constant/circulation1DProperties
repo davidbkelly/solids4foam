@@ -1,0 +1,105 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      circulation1DProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Junction reflection test: a small (linear) Gaussian pulse in a parent vessel
+// meets a 1 -> 2 junction. Two daughters equal to the parent: sum Y = 2 Y0, so the junction reflects
+// a negative pressure wave, (1 - 2)/(1 + 2) = -1/3.
+// analyse.py compares the reflected and transmitted pressure peaks with
+// (Y0 - sum Yi)/(Y0 + sum Yi) and 1 + that, Y = A/(rho c).
+
+fluid
+{
+    rho             1050;
+    mu              0;
+    profileOrder    9;
+    alpha           1;
+}
+
+numerics
+{
+    CFL             0.5;
+    flux            HLL;
+    limiter         none;
+    timeScheme      SSPRK2;
+}
+
+vesselDefaults
+{
+    initialPressure     0;
+}
+
+vessels
+{
+    parent
+    {
+        length              4;
+        nCells              3200;       // dx = 1.25 mm
+        radius              0.01;
+        wallThickness       1.5e-3;
+        youngsModulus       400e3;
+    }
+    daughter1
+    {
+        length              4;
+        nCells              3200;
+        radius              0.01;
+        wallThickness       0.0015;
+        youngsModulus       400000;
+    }
+    daughter2
+    {
+        length              4;
+        nCells              3200;
+        radius              0.01;
+        wallThickness       0.0015;
+        youngsModulus       400000;
+    }
+}
+
+nodes
+{
+    inlet
+    {
+        type        flowInlet;
+        connection  parent.in;
+        flowRate                        // Boileau Eq. 14 scaled by 1e-3: linear
+        {
+            type        expression;
+            expression  #{ 1e-9*exp(-1e4*sqr(arg() - 0.05)) #};
+        }
+    }
+
+    split
+    {
+        type        junction;
+        connections ( parent.out daughter1.in daughter2.in );
+    }
+
+    outlet1 { type absorbing; connection daughter1.out; }
+    outlet2 { type absorbing; connection daughter2.out; }
+}
+
+probes
+{
+    parent      { vessel parent;    x 2; }
+    daughter1   { vessel daughter1; x 1; }
+    daughter2   { vessel daughter2; x 1; }
+}
+
+// ************************************************************************* //

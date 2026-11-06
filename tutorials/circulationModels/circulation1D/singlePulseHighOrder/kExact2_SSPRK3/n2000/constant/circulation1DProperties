@@ -1,0 +1,74 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2412                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+FoamFile
+{
+    version         2;
+    format          ascii;
+    class           dictionary;
+    location        "constant";
+    object          circulation1DProperties;
+}
+
+fluid
+{
+    rho             1050;
+    mu              0;
+    profileOrder    9;
+    alpha           1;
+}
+
+numerics
+{
+    CFL             0.5;
+    flux            HLL;
+    reconstruction  kExact;
+    polynomialOrder 2;
+    limiter         none;
+    timeScheme      SSPRK3;
+}
+
+vessels
+{
+    tube
+    {
+        length          10;
+        nCells          2000;
+        radius          0.01;
+        wallThickness   0.0015;
+        youngsModulus   400000;
+        initialPressure 0;
+    }
+}
+
+nodes
+{
+    inlet
+    {
+        type            flowInlet;
+        connection      tube.in;
+        flowRate
+        {
+            type            scale;
+            scale           1;
+            value
+            {
+                type            expression;
+                expression      #{ 1e-6*exp(-1e4*sqr(arg() - 0.05)) #};
+            }
+        }
+    }
+    outlet
+    {
+        type            absorbing;
+        connection      tube.out;
+    }
+}
+
+
+// ************************************************************************* //

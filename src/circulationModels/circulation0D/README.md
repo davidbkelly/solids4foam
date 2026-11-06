@@ -18,7 +18,7 @@ LV -> AV -> SAS -> SAT -> SAR -> SCP -> SVN -> RA -> TV -> RV -> PV
 
 ```bash
 # after building the module, see ../README.md
-cd tutorials/circulationModels/healthyHuman
+cd tutorials/circulationModels/circulation0D/healthyHuman
 circulationFoam                     # 20 cardiac cycles in under a second
 # results: postProcessing/circulation/0/circulation.dat
 ```
@@ -251,7 +251,7 @@ outlet { type circulationPressure; value uniform 0; }
 ```
 
 and `libs ("libcirculationCoupling.so");` in `controlDict`. See
-`tutorials/circulationModels/pipeWindkessel`.
+`tutorials/circulationModels/circulation0D/pipeWindkessel`.
 
 ## Tutorials
 
@@ -270,7 +270,7 @@ and `libs ("libcirculationCoupling.so");` in `controlDict`. See
 During development the models were checked against reference solutions: a
 first-principles Windkessel, an independent implementation of the healthy-human
 loop, and, for the coupled CFD cases, exact solutions or a monolithic
-reference (see the READMEs in `tutorials/circulationModels`). The verification
+reference (see the READMEs in `tutorials/circulationModels/circulation0D`). The verification
 scripts and the reference data are not included yet.
 
 Last-cycle healthy loop: LV EDV/ESV 141.7/55.8 mL, SV 85.9 mL, EF 60.6 %,
@@ -286,7 +286,7 @@ src/circulationModels/circulation0D/
 src/circulationModels/circulationCoupling/
     CFD coupling: circulationPressure BC and the coupler (scheme, order)
 applications/solvers/circulationFoam
-tutorials/circulationModels/                   cases above
+tutorials/circulationModels/circulation0D/     cases above
 docs/COUPLING.md         swapping 0D for 3D (in ../docs)
 ```
 

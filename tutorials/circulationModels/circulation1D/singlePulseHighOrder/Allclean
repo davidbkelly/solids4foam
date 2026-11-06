@@ -1,0 +1,6 @@
+#!/bin/bash
+# Remove every run and the results
+cd "$(dirname "$0")" || exit 1
+rm -rf MUSCL_SSPRK2 kExact1_SSPRK2 kExact2_SSPRK3 kExact3_RK4 \
+       kExact3_RK4_visc plots
+rm -f log log.* orders.md

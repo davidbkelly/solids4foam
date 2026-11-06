@@ -1,0 +1,5 @@
+#!/bin/bash
+# Remove every run and the plots
+cd "$(dirname "$0")" || exit 1
+rm -rf linear full plots
+rm -f log log.* orders.md

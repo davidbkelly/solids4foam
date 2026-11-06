@@ -1,0 +1,12 @@
+#!/bin/bash
+# Run every 1D case and its analysis: the Boileau benchmark (boileau2015/,
+# its own Allrun), then the verification and 3D-1D cases (each case's Allrun).
+#   PYTHON=/path/to/python ./Allrun     a Python with numpy and matplotlib
+cd "$(dirname "$0")" || exit 1
+
+for case in boileau2015 singlePulseOrder singlePulseHighOrder \
+            junctionReflection fluidAtRest taperedOrder
+do
+    echo "=== $case"
+    "./$case/Allrun" || exit 1
+done

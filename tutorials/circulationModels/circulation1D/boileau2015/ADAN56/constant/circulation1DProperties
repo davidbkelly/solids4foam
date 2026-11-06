@@ -1,0 +1,753 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      circulation1DProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// The ADAN56 network of Boileau et al. (2015) section 4.6, written by
+// makeNetwork.py from referenceData/mesh.txt, dx 0.002 m: 77 segments
+// (tapered ones as tapered vessels), cgs converted to SI.
+// Do not edit by hand: change makeNetwork.py and run it again.
+
+fluid
+{
+    rho             1040;
+    mu              0.004;
+    profileOrder    2;
+    alpha           1;
+}
+
+numerics
+{
+    CFL             0.5;
+    flux            HLL;
+    limiter         MC;
+    timeScheme      SSPRK2;
+}
+
+// Every vessel: E 225000 Pa, Pd = P0 = 10 kPa (Ad = A0, the area of the table),
+// the wall thickness of Boileau Eq. 17, from (A0, 0, P0)
+vesselDefaults
+{
+    youngsModulus       225000;
+    diastolicPressure   10000;
+    externalPressure    0;
+    initialPressure     10000;
+    wallThicknessModel  ADAN56;
+}
+
+vessels
+{
+    aortic_arch_I                { length 0.074413765; nCells 37; radiusProximal 0.01595; radiusDistal 0.01295244; }
+    brachiocephalic_trunk        { length 0.047351278; nCells 24; radiusProximal 0.00672809; radiusDistal 0.00615874; }
+    aortic_arch_II               { length 0.0096038364; nCells 5; radiusProximal 0.01295244; radiusDistal 0.012565575; }
+    subclavian_R_I               { length 0.015740629; nCells 8; radiusProximal 0.00489563; radiusDistal 0.0041773477; }
+    common_carotid_R             { length 0.081219358; nCells 41; radiusProximal 0.00447559; radiusDistal 0.00332624; }
+    vertebral_R                  { length 0.20445319; nCells 102; radius 0.00133527; }
+    subclavian_R_II              { length 0.041118782; nCells 21; radiusProximal 0.0041773477; radiusDistal 0.002301; }
+    axillary_R                   { length 0.12000205; nCells 60; radiusProximal 0.002301; radiusDistal 0.002077; }
+    brachial_R                   { length 0.2231082; nCells 112; radiusProximal 0.002077; radiusDistal 0.00182827; }
+    radial_R                     { length 0.30088577; nCells 150; radius 0.001378; }
+    ulnar_R_I                    { length 0.029756241; nCells 15; radius 0.001408; }
+    common_interosseous_R        { length 0.016266066; nCells 8; radius 0.000959; }
+    ulnar_R_II                   { length 0.23926163; nCells 120; radius 0.001408; }
+    posterior_interosseous_R     { length 0.23056137; nCells 115; radius 0.000676; }
+    external_carotid_R           { length 0.060896877; nCells 30; radius 0.00226547; }
+    internal_carotid_R           { length 0.13210996; nCells 66; radius 0.00276538; }
+    common_carotid_L             { length 0.12131904; nCells 61; radiusProximal 0.00447559; radiusDistal 0.00332624; }
+    aortic_arch_III              { length 0.0069785313; nCells 3; radiusProximal 0.012565575; radiusDistal 0.012284463; }
+    external_carotid_L           { length 0.06089706; nCells 30; radius 0.00226547; }
+    internal_carotid_L           { length 0.13211038; nCells 66; radius 0.00276538; }
+    subclavian_L_I               { length 0.049384125; nCells 25; radiusProximal 0.00489563; radiusDistal 0.0034798354; }
+    aortic_arch_IV               { length 0.04305767; nCells 22; radiusProximal 0.012284463; radiusDistal 0.01055; }
+    vertebral_L                  { length 0.20415381; nCells 102; radius 0.00133527; }
+    subclavian_L_II              { length 0.041118786; nCells 21; radiusProximal 0.0034798354; radiusDistal 0.002301; }
+    axillary_L                   { length 0.12000214; nCells 60; radiusProximal 0.002301; radiusDistal 0.002077; }
+    brachial_L                   { length 0.22310878; nCells 112; radiusProximal 0.002077; radiusDistal 0.00182827; }
+    radial_L                     { length 0.31088441; nCells 155; radius 0.001378; }
+    ulnar_L_I                    { length 0.02975579; nCells 15; radius 0.001408; }
+    common_interosseous_L        { length 0.016266063; nCells 8; radius 0.000959; }
+    ulnar_L_II                   { length 0.23926216; nCells 120; radius 0.001408; }
+    posterior_interosseous_L     { length 0.23056247; nCells 115; radius 0.000676; }
+    thoracic_aorta_I             { length 0.0098970813; nCells 5; radiusProximal 0.01055; radiusDistal 0.010363805; }
+    posterior_intercostal_T6_R   { length 0.1968811; nCells 98; radius 0.0014; }
+    thoracic_aorta_II            { length 0.0078803844; nCells 4; radiusProximal 0.010363805; radiusDistal 0.01021555; }
+    posterior_intercostal_T6_L   { length 0.17803022; nCells 89; radius 0.0014; }
+    thoracic_aorta_III           { length 0.015555918; nCells 8; radiusProximal 0.01021555; radiusDistal 0.0099228951; }
+    posterior_intercostal_T7_R   { length 0.20156034; nCells 101; radius 0.00155; }
+    thoracic_aorta_IV            { length 0.0053270486; nCells 3; radiusProximal 0.0099228951; radiusDistal 0.0098226767; }
+    posterior_intercostal_T7_L   { length 0.18517624; nCells 93; radius 0.00155; }
+    thoracic_aorta_V             { length 0.12156075; nCells 61; radiusProximal 0.0098226767; radiusDistal 0.00753574; }
+    thoracic_aorta_VI            { length 0.0032476667; nCells 2; radiusProximal 0.00753574; radiusDistal 0.0074949241; }
+    celiac_trunk                 { length 0.016823833; nCells 8; radiusProximal 0.00334998; radiusDistal 0.00321246; }
+    abdominal_aorta_I            { length 0.013988434; nCells 7; radiusProximal 0.0074949241; radiusDistal 0.007319121; }
+    common_hepatic               { length 0.066554552; nCells 33; radius 0.00268614; }
+    splenic_I                    { length 0.003948745; nCells 2; radius 0.00216682; }
+    left_gastric                 { length 0.092866914; nCells 46; radius 0.00150666; }
+    splenic_II                   { length 0.064402742; nCells 32; radius 0.00216682; }
+    superior_mesenteric          { length 0.21639832; nCells 108; radius 0.00392612; }
+    abdominal_aorta_II           { length 0.0043191256; nCells 2; radiusProximal 0.007319121; radiusDistal 0.0072648393; }
+    renal_L                      { length 0.021836535; nCells 11; radius 0.0027089; }
+    abdominal_aorta_III          { length 0.011977283; nCells 6; radiusProximal 0.0072648393; radiusDistal 0.0071143118; }
+    renal_R                      { length 0.037717425; nCells 19; radius 0.00309737; }
+    abdominal_aorta_IV           { length 0.054089377; nCells 27; radiusProximal 0.0071143118; radiusDistal 0.00643453; }
+    inferior_mesenteric          { length 0.090238544; nCells 45; radius 0.00207748; }
+    abdominal_aorta_V            { length 0.042224742; nCells 21; radiusProximal 0.00643453; radiusDistal 0.00590386; }
+    common_iliac_R               { length 0.076428564; nCells 38; radiusProximal 0.00449868; radiusDistal 0.00409113; }
+    common_iliac_L               { length 0.074038018; nCells 37; radiusProximal 0.00449868; radiusDistal 0.00409113; }
+    external_iliac_R             { length 0.10221063; nCells 51; radiusProximal 0.00337758; radiusDistal 0.003189; }
+    internal_iliac_R             { length 0.072509421; nCells 36; radius 0.00281829; }
+    femoral_R_I                  { length 0.031591224; nCells 16; radiusProximal 0.003189; radiusDistal 0.0031437249; }
+    profunda_femoris_R           { length 0.23839372; nCells 119; radius 0.00214445; }
+    femoral_R_II                 { length 0.31928532; nCells 160; radiusProximal 0.0031437249; radiusDistal 0.00268614; }
+    popliteal_R_I                { length 0.13202902; nCells 66; radiusProximal 0.00268614; radiusDistal 0.0023676798; }
+    anterior_tibial_R            { length 0.38621567; nCells 193; radius 0.0011663; }
+    popliteal_R_II               { length 0.0087974289; nCells 4; radiusProximal 0.0023676798; radiusDistal 0.00234646; }
+    tibiofibular_trunk_R         { length 0.036162677; nCells 18; radius 0.00234646; }
+    posterior_tibial_R           { length 0.38288485; nCells 191; radius 0.00122936; }
+    external_iliac_L             { length 0.10221068; nCells 51; radiusProximal 0.00337758; radiusDistal 0.003189; }
+    internal_iliac_L             { length 0.072509392; nCells 36; radius 0.00281829; }
+    femoral_L_I                  { length 0.031591224; nCells 16; radiusProximal 0.003189; radiusDistal 0.0031437249; }
+    profunda_femoris_L           { length 0.23839375; nCells 119; radius 0.00214445; }
+    femoral_L_II                 { length 0.31928532; nCells 160; radiusProximal 0.0031437249; radiusDistal 0.00268614; }
+    popliteal_L_I                { length 0.13202809; nCells 66; radiusProximal 0.00268614; radiusDistal 0.0023676798; }
+    anterior_tibial_L            { length 0.38621641; nCells 193; radius 0.0011663; }
+    popliteal_L_II               { length 0.0087973824; nCells 4; radiusProximal 0.0023676798; radiusDistal 0.00234646; }
+    tibiofibular_trunk_L         { length 0.03616364; nCells 18; radius 0.00234646; }
+    posterior_tibial_L           { length 0.38288465; nCells 191; radius 0.00122936; }
+}
+
+nodes
+{
+    inlet
+    {
+        type        flowInlet;
+        connection  aortic_arch_I.in;
+        flowRate                        // referenceData/inflow.txt, T = 1 s
+        {
+            type        table;
+            outOfBounds repeat;
+            values
+            (
+                (0 0)
+                (0.02193 0)
+                (0.041305 0.000105089)
+                (0.06068 0.00027323)
+                (0.080055 0.000404592)
+                (0.09943 0.000535952)
+                (0.118805 0.000567479)
+                (0.128492 0.000572734)
+                (0.13818 0.000567479)
+                (0.157555 0.000535952)
+                (0.17693 0.000488663)
+                (0.196305 0.000451882)
+                (0.244742 0.000315266)
+                (0.322242 0.000178651)
+                (0.351305 0.000136615)
+                (0.390055 0)
+                (0.415117 -0.000162888)
+                (0.437555 -2.10178e-05)
+                (0.48693 0)
+                (0.515992 5.25444e-06)
+                (0.583805 0)
+                (1 0)
+            );
+        }
+    }
+    n01 { type junction; connections (aortic_arch_I.out brachiocephalic_trunk.in aortic_arch_II.in); }
+    n02 { type junction; connections (brachiocephalic_trunk.out subclavian_R_I.in common_carotid_R.in); }
+    n03 { type junction; connections (aortic_arch_II.out common_carotid_L.in aortic_arch_III.in); }
+    n04 { type junction; connections (subclavian_R_I.out vertebral_R.in subclavian_R_II.in); }
+    n05 { type junction; connections (common_carotid_R.out external_carotid_R.in internal_carotid_R.in); }
+    vertebral_R_wk
+    {
+        type        lumped0D;
+        connection  vertebral_R.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 1.8104265e+09; C 3.128659e-11; R 7.2417058e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n07 { type junction; connections (subclavian_R_II.out axillary_R.in); }
+    n08 { type junction; connections (axillary_R.out brachial_R.in); }
+    n09 { type junction; connections (brachial_R.out radial_R.in ulnar_R_I.in); }
+    radial_R_wk
+    {
+        type        lumped0D;
+        connection  radial_R.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 1.1538809e+09; C 4.9088315e-11; R 4.6155237e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n11 { type junction; connections (ulnar_R_I.out common_interosseous_R.in ulnar_R_II.in); }
+    n12 { type junction; connections (common_interosseous_R.out posterior_interosseous_R.in); }
+    ulnar_R_II_wk
+    {
+        type        lumped0D;
+        connection  ulnar_R_II.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 1.1748638e+09; C 4.8211607e-11; R 4.6994551e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    posterior_interosseous_R_wk
+    {
+        type        lumped0D;
+        connection  posterior_interosseous_R.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 4.7813053e+09; C 1.1846571e-11; R 1.9125221e+10; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    external_carotid_R_wk
+    {
+        type        lumped0D;
+        connection  external_carotid_R.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 9.3908095e+08; C 6.0316494e-11; R 3.7563238e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    internal_carotid_R_wk
+    {
+        type        lumped0D;
+        connection  internal_carotid_R.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 5.7601596e+08; C 9.8334203e-11; R 2.3040639e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n17 { type junction; connections (common_carotid_L.out external_carotid_L.in internal_carotid_L.in); }
+    n18 { type junction; connections (aortic_arch_III.out subclavian_L_I.in aortic_arch_IV.in); }
+    external_carotid_L_wk
+    {
+        type        lumped0D;
+        connection  external_carotid_L.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 9.4239043e+08; C 6.0104675e-11; R 3.7695617e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    internal_carotid_L_wk
+    {
+        type        lumped0D;
+        connection  internal_carotid_L.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 5.7793987e+08; C 9.8006857e-11; R 2.3117595e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n21 { type junction; connections (subclavian_L_I.out vertebral_L.in subclavian_L_II.in); }
+    n22 { type junction; connections (aortic_arch_IV.out thoracic_aorta_I.in); }
+    vertebral_L_wk
+    {
+        type        lumped0D;
+        connection  vertebral_L.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 1.9243003e+09; C 2.9435151e-11; R 7.6972012e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n24 { type junction; connections (subclavian_L_II.out axillary_L.in); }
+    n25 { type junction; connections (axillary_L.out brachial_L.in); }
+    n26 { type junction; connections (brachial_L.out radial_L.in ulnar_L_I.in); }
+    radial_L_wk
+    {
+        type        lumped0D;
+        connection  radial_L.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 1.133218e+09; C 4.9983382e-11; R 4.5328722e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n28 { type junction; connections (ulnar_L_I.out common_interosseous_L.in ulnar_L_II.in); }
+    n29 { type junction; connections (common_interosseous_L.out posterior_interosseous_L.in); }
+    ulnar_L_II_wk
+    {
+        type        lumped0D;
+        connection  ulnar_L_II.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 1.1976263e+09; C 4.7295281e-11; R 4.7905051e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    posterior_interosseous_L_wk
+    {
+        type        lumped0D;
+        connection  posterior_interosseous_L.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 4.7986222e+09; C 1.1803819e-11; R 1.9194489e+10; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n32 { type junction; connections (thoracic_aorta_I.out posterior_intercostal_T6_R.in thoracic_aorta_II.in); }
+    posterior_intercostal_T6_R_wk
+    {
+        type        lumped0D;
+        connection  posterior_intercostal_T6_R.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 2.4912692e+10; C 2.273623e-12; R 9.9650769e+10; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n34 { type junction; connections (thoracic_aorta_II.out posterior_intercostal_T6_L.in thoracic_aorta_III.in); }
+    posterior_intercostal_T6_L_wk
+    {
+        type        lumped0D;
+        connection  posterior_intercostal_T6_L.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 2.5558318e+10; C 2.2161893e-12; R 1.0223327e+11; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n36 { type junction; connections (thoracic_aorta_III.out posterior_intercostal_T7_R.in thoracic_aorta_IV.in); }
+    posterior_intercostal_T7_R_wk
+    {
+        type        lumped0D;
+        connection  posterior_intercostal_T7_R.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 2.3243371e+10; C 2.4369129e-12; R 9.2973483e+10; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n38 { type junction; connections (thoracic_aorta_IV.out posterior_intercostal_T7_L.in thoracic_aorta_V.in); }
+    posterior_intercostal_T7_L_wk
+    {
+        type        lumped0D;
+        connection  posterior_intercostal_T7_L.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 2.3442544e+10; C 2.4162083e-12; R 9.3770177e+10; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n40 { type junction; connections (thoracic_aorta_V.out thoracic_aorta_VI.in); }
+    n41 { type junction; connections (thoracic_aorta_VI.out celiac_trunk.in abdominal_aorta_I.in); }
+    n42 { type junction; connections (celiac_trunk.out common_hepatic.in splenic_I.in); }
+    n43 { type junction; connections (abdominal_aorta_I.out superior_mesenteric.in abdominal_aorta_II.in); }
+    common_hepatic_wk
+    {
+        type        lumped0D;
+        connection  common_hepatic.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 3.348551e+08; C 1.6915397e-10; R 1.3394204e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n45 { type junction; connections (splenic_I.out left_gastric.in splenic_II.in); }
+    left_gastric_wk
+    {
+        type        lumped0D;
+        connection  left_gastric.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 3.433935e+10; C 1.64948e-12; R 1.373574e+11; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    splenic_II_wk
+    {
+        type        lumped0D;
+        connection  splenic_II.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 4.7333235e+08; C 1.1966659e-10; R 1.8933294e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    superior_mesenteric_wk
+    {
+        type        lumped0D;
+        connection  superior_mesenteric.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 2.1819253e+08; C 2.5959674e-10; R 8.7277013e+08; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n49 { type junction; connections (abdominal_aorta_II.out renal_L.in abdominal_aorta_III.in); }
+    renal_L_wk
+    {
+        type        lumped0D;
+        connection  renal_L.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 2.2628161e+08; C 2.5031672e-10; R 9.0512643e+08; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n51 { type junction; connections (abdominal_aorta_III.out renal_R.in abdominal_aorta_IV.in); }
+    renal_R_wk
+    {
+        type        lumped0D;
+        connection  renal_R.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 2.2704138e+08; C 2.4947906e-10; R 9.0816552e+08; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n53 { type junction; connections (abdominal_aorta_IV.out inferior_mesenteric.in abdominal_aorta_V.in); }
+    inferior_mesenteric_wk
+    {
+        type        lumped0D;
+        connection  inferior_mesenteric.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 2.3912901e+09; C 2.3686825e-11; R 9.5651603e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n55 { type junction; connections (abdominal_aorta_V.out common_iliac_R.in common_iliac_L.in); }
+    n56 { type junction; connections (common_iliac_R.out external_iliac_R.in internal_iliac_R.in); }
+    n57 { type junction; connections (common_iliac_L.out external_iliac_L.in internal_iliac_L.in); }
+    n58 { type junction; connections (external_iliac_R.out femoral_R_I.in); }
+    internal_iliac_R_wk
+    {
+        type        lumped0D;
+        connection  internal_iliac_R.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 4.1455563e+08; C 1.3663322e-10; R 1.6582225e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n60 { type junction; connections (femoral_R_I.out profunda_femoris_R.in femoral_R_II.in); }
+    profunda_femoris_R_wk
+    {
+        type        lumped0D;
+        connection  profunda_femoris_R.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 3.4268722e+08; C 1.6528796e-10; R 1.3707489e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n62 { type junction; connections (femoral_R_II.out popliteal_R_I.in); }
+    n63 { type junction; connections (popliteal_R_I.out anterior_tibial_R.in popliteal_R_II.in); }
+    anterior_tibial_R_wk
+    {
+        type        lumped0D;
+        connection  anterior_tibial_R.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 2.452511e+09; C 2.3095542e-11; R 9.8100442e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n65 { type junction; connections (popliteal_R_II.out tibiofibular_trunk_R.in); }
+    n66 { type junction; connections (tibiofibular_trunk_R.out posterior_tibial_R.in); }
+    posterior_tibial_R_wk
+    {
+        type        lumped0D;
+        connection  posterior_tibial_R.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 2.1156369e+09; C 2.6773058e-11; R 8.4625476e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n68 { type junction; connections (external_iliac_L.out femoral_L_I.in); }
+    internal_iliac_L_wk
+    {
+        type        lumped0D;
+        connection  internal_iliac_L.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 4.1579718e+08; C 1.3622524e-10; R 1.6631887e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n70 { type junction; connections (femoral_L_I.out profunda_femoris_L.in femoral_L_II.in); }
+    profunda_femoris_L_wk
+    {
+        type        lumped0D;
+        connection  profunda_femoris_L.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 3.4286962e+08; C 1.652e-10; R 1.3714785e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n72 { type junction; connections (femoral_L_II.out popliteal_L_I.in); }
+    n73 { type junction; connections (popliteal_L_I.out anterior_tibial_L.in popliteal_L_II.in); }
+    anterior_tibial_L_wk
+    {
+        type        lumped0D;
+        connection  anterior_tibial_L.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 2.4532825e+09; C 2.3088279e-11; R 9.8131301e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+    n75 { type junction; connections (popliteal_L_II.out tibiofibular_trunk_L.in); }
+    n76 { type junction; connections (tibiofibular_trunk_L.out posterior_tibial_L.in); }
+    posterior_tibial_L_wk
+    {
+        type        lumped0D;
+        connection  posterior_tibial_L.out;
+        circuit
+        {
+            components
+            {
+                port { type externalPort; direction outlet; }
+                wk   { type windkessel3; Rch 2.116559e+09; C 2.6761394e-11; R 8.4662361e+09; initialPressure 10000; }
+            }
+            connections ( (port wk) );
+        }
+    }
+}
+
+probes
+{
+    AorticArchI          { vessel aortic_arch_I; x 0.037206883; }
+    ThoAortaIII          { vessel thoracic_aorta_III; x 0.0077779588; }
+    AbdomAortaV          { vessel abdominal_aorta_V; x 0.021112371; }
+    RightCCA             { vessel common_carotid_R; x 0.040609679; }
+    RightRenal           { vessel renal_R; x 0.018858712; }
+    RightCommonIliac     { vessel common_iliac_R; x 0.038214282; }
+    RightICA             { vessel internal_carotid_R; x 0.066054981; }
+    RightRadial          { vessel radial_R; x 0.15044288; }
+    RightInternalIliac   { vessel internal_iliac_R; x 0.03625471; }
+    RightPostInteross    { vessel posterior_interosseous_R; x 0.11528068; }
+    RightFemoralII       { vessel femoral_R_II; x 0.15964266; }
+    RightAntTibial       { vessel anterior_tibial_R; x 0.19310784; }
+    aorta000           { vessel aortic_arch_I; x 0; }
+    aorta005           { vessel aortic_arch_I; x 0.005; }
+    aorta010           { vessel aortic_arch_I; x 0.01; }
+    aorta015           { vessel aortic_arch_I; x 0.015; }
+    aorta020           { vessel aortic_arch_I; x 0.02; }
+    aorta025           { vessel aortic_arch_I; x 0.025; }
+    aorta030           { vessel aortic_arch_I; x 0.03; }
+    aorta035           { vessel aortic_arch_I; x 0.035; }
+    aorta040           { vessel aortic_arch_I; x 0.04; }
+    aorta045           { vessel aortic_arch_I; x 0.045; }
+    aorta050           { vessel aortic_arch_I; x 0.05; }
+    aorta055           { vessel aortic_arch_I; x 0.055; }
+    aorta060           { vessel aortic_arch_I; x 0.06; }
+    aorta065           { vessel aortic_arch_I; x 0.065; }
+    aorta070           { vessel aortic_arch_I; x 0.07; }
+    aorta075           { vessel aortic_arch_II; x 0.0005862345; }
+    aorta080           { vessel aortic_arch_II; x 0.0055862345; }
+    aorta085           { vessel aortic_arch_III; x 0.00098239812; }
+    aorta090           { vessel aortic_arch_III; x 0.0059823981; }
+    aorta095           { vessel aortic_arch_IV; x 0.0040038668; }
+    aorta100           { vessel aortic_arch_IV; x 0.0090038668; }
+    aorta105           { vessel aortic_arch_IV; x 0.014003867; }
+    aorta110           { vessel aortic_arch_IV; x 0.019003867; }
+    aorta115           { vessel aortic_arch_IV; x 0.024003867; }
+    aorta120           { vessel aortic_arch_IV; x 0.029003867; }
+    aorta125           { vessel aortic_arch_IV; x 0.034003867; }
+    aorta130           { vessel aortic_arch_IV; x 0.039003867; }
+    aorta135           { vessel thoracic_aorta_I; x 0.00094619665; }
+    aorta140           { vessel thoracic_aorta_I; x 0.0059461967; }
+    aorta145           { vessel thoracic_aorta_II; x 0.0010491154; }
+    aorta150           { vessel thoracic_aorta_II; x 0.0060491154; }
+    aorta155           { vessel thoracic_aorta_III; x 0.003168731; }
+    aorta160           { vessel thoracic_aorta_III; x 0.008168731; }
+    aorta165           { vessel thoracic_aorta_III; x 0.013168731; }
+    aorta170           { vessel thoracic_aorta_IV; x 0.0026128134; }
+    aorta175           { vessel thoracic_aorta_V; x 0.0022857647; }
+    aorta180           { vessel thoracic_aorta_V; x 0.0072857647; }
+    aorta185           { vessel thoracic_aorta_V; x 0.012285765; }
+    aorta190           { vessel thoracic_aorta_V; x 0.017285765; }
+    aorta195           { vessel thoracic_aorta_V; x 0.022285765; }
+    aorta200           { vessel thoracic_aorta_V; x 0.027285765; }
+    aorta205           { vessel thoracic_aorta_V; x 0.032285765; }
+    aorta210           { vessel thoracic_aorta_V; x 0.037285765; }
+    aorta215           { vessel thoracic_aorta_V; x 0.042285765; }
+    aorta220           { vessel thoracic_aorta_V; x 0.047285765; }
+    aorta225           { vessel thoracic_aorta_V; x 0.052285765; }
+    aorta230           { vessel thoracic_aorta_V; x 0.057285765; }
+    aorta235           { vessel thoracic_aorta_V; x 0.062285765; }
+    aorta240           { vessel thoracic_aorta_V; x 0.067285765; }
+    aorta245           { vessel thoracic_aorta_V; x 0.072285765; }
+    aorta250           { vessel thoracic_aorta_V; x 0.077285765; }
+    aorta255           { vessel thoracic_aorta_V; x 0.082285765; }
+    aorta260           { vessel thoracic_aorta_V; x 0.087285765; }
+    aorta265           { vessel thoracic_aorta_V; x 0.092285765; }
+    aorta270           { vessel thoracic_aorta_V; x 0.097285765; }
+    aorta275           { vessel thoracic_aorta_V; x 0.10228576; }
+    aorta280           { vessel thoracic_aorta_V; x 0.10728576; }
+    aorta285           { vessel thoracic_aorta_V; x 0.11228576; }
+    aorta290           { vessel thoracic_aorta_V; x 0.11728576; }
+    aorta295           { vessel thoracic_aorta_VI; x 0.00072501827; }
+    aorta300           { vessel abdominal_aorta_I; x 0.0024773515; }
+    aorta305           { vessel abdominal_aorta_I; x 0.0074773515; }
+    aorta310           { vessel abdominal_aorta_I; x 0.012477352; }
+    aorta315           { vessel abdominal_aorta_II; x 0.0034889171; }
+    aorta320           { vessel abdominal_aorta_III; x 0.0041697914; }
+    aorta325           { vessel abdominal_aorta_III; x 0.0091697914; }
+    aorta330           { vessel abdominal_aorta_IV; x 0.0021925088; }
+    aorta335           { vessel abdominal_aorta_IV; x 0.0071925088; }
+    aorta340           { vessel abdominal_aorta_IV; x 0.012192509; }
+    aorta345           { vessel abdominal_aorta_IV; x 0.017192509; }
+    aorta350           { vessel abdominal_aorta_IV; x 0.022192509; }
+    aorta355           { vessel abdominal_aorta_IV; x 0.027192509; }
+    aorta360           { vessel abdominal_aorta_IV; x 0.032192509; }
+    aorta365           { vessel abdominal_aorta_IV; x 0.037192509; }
+    aorta370           { vessel abdominal_aorta_IV; x 0.042192509; }
+    aorta375           { vessel abdominal_aorta_IV; x 0.047192509; }
+    aorta380           { vessel abdominal_aorta_IV; x 0.052192509; }
+    aorta385           { vessel abdominal_aorta_V; x 0.0031031321; }
+    aorta390           { vessel abdominal_aorta_V; x 0.0081031321; }
+    aorta395           { vessel abdominal_aorta_V; x 0.013103132; }
+    aorta400           { vessel abdominal_aorta_V; x 0.018103132; }
+    aorta405           { vessel abdominal_aorta_V; x 0.023103132; }
+    aorta410           { vessel abdominal_aorta_V; x 0.028103132; }
+    aorta415           { vessel abdominal_aorta_V; x 0.033103132; }
+    aorta420           { vessel abdominal_aorta_V; x 0.038103132; }
+}
+
+// ************************************************************************* //

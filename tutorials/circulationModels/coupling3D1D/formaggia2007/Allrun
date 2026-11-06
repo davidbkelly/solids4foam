@@ -1,0 +1,54 @@
+#!/bin/bash
+# The Formaggia et al. (2007) 3D-1D test: the full FSI tube, the coupled tube
+# and the 1D vessel alone, then the comparison. The two FSI runs go together:
+# the long reference tube on 4 ranks, the coupled tube serial.
+cd "$(dirname "$0")" || exit 1
+
+# Source solids4Foam scripts
+source solids4FoamScripts.sh
+
+solids4Foam::requirePetscOrExitSilently
+
+python3 makeCases.py "$@" || exit 1
+
+run3d()
+{
+    (
+        cd "runs/$1" || exit 1
+        blockMesh -region solid > log.blockMesh.solid 2>&1 || exit 1
+        blockMesh -region fluid > log.blockMesh.fluid 2>&1 || exit 1
+        topoSet -region fluid > log.topoSet 2>&1 || exit 1
+        if [[ "$2" == "parallel" ]]
+        then
+            decomposePar -region fluid > log.decomposePar.fluid 2>&1 || exit 1
+            decomposePar -region solid > log.decomposePar.solid 2>&1 || exit 1
+            mpirun -np 4 solids4Foam -parallel > log.solids4Foam 2>&1
+        else
+            solids4Foam > log.solids4Foam 2>&1
+        fi
+    )
+}
+
+if ! grep -qs "^End" runs/full3D/log.solids4Foam
+then
+    echo "Running full3D (4 ranks)"
+    run3d full3D parallel &
+fi
+for d in runs/coupled*
+do
+    c=$(basename "$d")
+    if ! grep -qs "^End" "runs/$c/log.solids4Foam"
+    then
+        echo "Running $c"
+        run3d "$c" &
+    fi
+done
+
+if ! grep -qs "^End" runs/only1D/log.circulation1DFoam
+then
+    echo "Running only1D"
+    (cd runs/only1D && circulation1DFoam > log.circulation1DFoam 2>&1) &
+fi
+wait
+
+python3 analyse.py
