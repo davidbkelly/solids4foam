@@ -330,6 +330,32 @@ Foam::circulation1DCoupler::circulation1DCoupler
     }
     network_.reset(new network1D(props, lastT_));
 
+    // Continue from a stored state if there is one at the start time, as
+    // circulation1DFoam does: a coupled run can then start from the periodic
+    // state of a 1D-only run of the same network (vessels of the same names
+    // and meshes; vessels the stored network had and this one has not are
+    // ignored, e.g. the 1D segment the 3D domain replaces)
+    {
+        // The coupler is built at the first boundary update, when the time
+        // has already moved on: look in the start-time directory
+        IOobject stateIO
+        (
+            "circulation1DState",
+            mesh.time().timeName(mesh.time().startTime().value()),
+            mesh.time(),
+            IOobject::MUST_READ,
+            IOobject::NO_WRITE
+        );
+
+        if (stateIO.typeHeaderOk<IOdictionary>(true))
+        {
+            const IOdictionary state(stateIO);
+            network_().readState(state);
+            Info<< "circulation1DCoupler: restarted the network from "
+                << stateIO.objectPath() << endl;
+        }
+    }
+
     // Bind every port to its patch
     for (const word& pn : network_().portNames())
     {

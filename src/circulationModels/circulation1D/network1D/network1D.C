@@ -852,10 +852,12 @@ void Foam::network1D::readState(const dictionary& d)
         v.setFields(s.get<scalarField>("A"), s.get<scalarField>("Q"));
     }
 
+    // A node the stored network did not have (e.g. an inertance standing in
+    // for a vessel it had) keeps its initial state
     const dictionary& nd = d.subDict("nodes");
     for (node1D& n : nodes_)
     {
-        if (n.nStates())
+        if (n.nStates() && nd.found(n.name()))
         {
             n.setStates(nd.subDict(n.name()).get<scalarField>("y"));
         }

@@ -1,0 +1,40 @@
+#!/bin/bash
+# The thoracic aorta II of the 37-artery network as a 3D segment: the 1D
+# network with the segment split (18 cycles, the periodic state), then the
+# inertance and the pimpleFoam runs restarted from it, then the comparison
+cd "$(dirname "$0")" || exit 1
+
+# Source solids4Foam scripts
+source solids4FoamScripts.sh
+
+solids4Foam::caseDoesNotRunWithFoamExtend
+solids4Foam::caseDoesNotRunWithOpenFOAMOrg
+
+python3 makeCases.py "$@" || exit 1
+
+if ! grep -qs "^End" runs/stubs1D/log.circulation1DFoam
+then
+    echo "Running stubs1D"
+    (cd runs/stubs1D && circulation1DFoam > log.circulation1DFoam 2>&1) || exit 1
+fi
+
+python3 makeCases.py --restart "$@" || exit 1
+
+if ! grep -qs "^End" runs/stubsInertance/log.circulation1DFoam
+then
+    echo "Running stubsInertance"
+    (cd runs/stubsInertance && circulation1DFoam > log.circulation1DFoam 2>&1) &
+fi
+if ! grep -qs "^End" runs/rigid3D/log.pimpleFoam
+then
+    echo "Running rigid3D"
+    (
+        cd runs/rigid3D || exit 1
+        blockMesh > log.blockMesh 2>&1 || exit 1
+        topoSet > log.topoSet 2>&1 || exit 1
+        pimpleFoam > log.pimpleFoam 2>&1
+    ) &
+fi
+wait
+
+python3 analyse.py
