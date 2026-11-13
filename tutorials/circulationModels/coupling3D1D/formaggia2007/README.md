@@ -91,9 +91,29 @@ scheme's documentation warns); and with the wall kept at `BDF 2`, the
 Robin-Neumann loop still diverges on the first step at which the fluid's
 start-up ramp reaches order 3 or 4 (its pressure Robin coefficient is
 derived for Euler/backward), whereas the same case with the
-Dirichlet-Neumann IQN-ILS coupling runs through. The orders of the
-coupling itself are established on `rigidSegment3D`; a BDF 3/4 study on
-this case would use IQN-ILS.
+Dirichlet-Neumann IQN-ILS coupling runs through.
+
+The IQN-ILS study (`orderStudy.py --smooth --tight --dn`,
+`orders_smooth_dn.md`; `newMovingWallVelocity`/`zeroGradient` on the wall,
+`IQNILS` with an initial relaxation of 0.05) settles what the FSI case can
+show. Its interface residual levels off near 1e-7 at the finer steps (the
+least-squares modes become collinear as the increments shrink), so that is
+its tolerance. With it, fluid `BDF 3`/`BDF 4` with the coupling at order
+3/4 and the wall at `BDF 2` (`BDF3s2`, `BDF4s2`) run through the whole
+pulse at 17-21 FSI iterations per step at dt = 100, 50 and 25 us, which the
+Robin-Neumann loop could not; the full `BDF 3`/`BDF 4` families (wall
+d2dt2 at order 3/4) diverge in the FSI loop mid-pulse under IQN-ILS too,
+confirming the ring-mode limit of the d2dt2 scheme. The observed orders
+with IQN-ILS are 1-2 for every family (backward 1.78 at the port, 2.33 on
+the wall; `BDF3s2` 1.3, `BDF4s2` 1.05 at the port): the differences between
+successive steps are about 1e-2 of the signal and the same size whatever
+the fluid scheme, i.e. they belong to the second- and first-order parts of
+the FSI machinery (the interface velocity from the mesh displacement, the
+mesh motion, the `BDF 2` wall), not to the fluid scheme or the 3D-1D
+coupling. The conclusion for this case: the coupling preserves the order of
+the FSI solver, which is 2; orders 3 and 4 of the coupling itself are
+established on the pimpleFoam cases (`rigidSegment3D`, `dobroserdova2016`,
+`womersleySegment`, `thoracicAorta37`, see `../orderStudy.py`).
 
 ## Results
 

@@ -50,6 +50,9 @@ INFLOWS = {
     "step": ("expression", "#{ (arg() <= 0.1) ? 1e-7 : 0 #}", 0.5, 5e-4),
 }
 LIND = RHO*L3D/A                # inductance of the rigid pipe [kg/m4]
+A3D = 0.5*32*R**2*math.sin(2*math.pi/32)     # the 32-sided patch polygon of
+                                # the 3D pipe (0.9936 pi R^2): its inductance
+                                # is RHO*L3D/A3D
 
 
 def youngs(c0):
@@ -246,11 +249,15 @@ def edit(path, pairs):
     path.write_text(s)
 
 
-def make_3d(c0name, inflow):
+def make_3d(c0name, inflow, name=None, dt=None, end=None, force=None):
     """The 3D run of the hard coupling: the rigidSegment3D base case with a
-    5 cm pipe, one 1D vessel at its inlet and p = 0 at its outlet"""
-    case = RUNS/f"{inflow}_{c0name}_hard3D"
-    if finished(case) and "--force" not in sys.argv:
+    5 cm pipe, one 1D vessel at its inlet and p = 0 at its outlet. name, dt
+    and end override the run's name (it must contain "3D"), time step and
+    end time (the order study)."""
+    case = RUNS/(name or f"{inflow}_{c0name}_hard3D")
+    if force is None:
+        force = "--force" in sys.argv
+    if finished(case) and not force:
         return case
     if case.exists():
         shutil.rmtree(case)
@@ -258,7 +265,9 @@ def make_3d(c0name, inflow):
     shutil.copytree(base, case)
     (case/"constant"/"circulation1DProperties").write_text(
         properties("hard3D", C0S[c0name], inflow))
-    _, _, end, dt = INFLOWS[inflow]
+    _, _, end0, dt0 = INFLOWS[inflow]
+    end = end if end is not None else end0
+    dt = dt if dt is not None else dt0
     edit(case/"system"/"controlDict", [
         (r"^endTime\s+\S+;", f"endTime         {end};"),
         (r"^deltaT\s+\S+;.*$", f"deltaT          {dt};"),

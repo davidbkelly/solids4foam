@@ -65,12 +65,13 @@ SMOOTH_PULSE = ("#{ (arg() < 3e-3) ? 1.3332*sqr(sin(1047.1975511965977*arg()))"
                 " : 0 #}")                   # p/rho: 1333.2 Pa sin^2(pi t/3 ms)
 
 
-def run_name(family, dt, smooth=False):
-    return f"order_{family}_dt{dt:g}" + ("_smooth" if smooth else "")
+def run_name(family, dt, smooth=False, dn=False):
+    return (f"order_{family}_dt{dt:g}" + ("_smooth" if smooth else "")
+            + ("_dn" if dn else ""))
 
 
-def make(family, dt, end_time, force, smooth=False, tight=False):
-    name = run_name(family, dt, smooth)
+def make(family, dt, end_time, force, smooth=False, tight=False, dn=False):
+    name = run_name(family, dt, smooth, dn)
     case = RUNS/name
     if case.exists() and mc.finished(case) and not force:
         return name
@@ -91,6 +92,27 @@ def make(family, dt, end_time, force, smooth=False, tight=False):
                   r"\g<1>1e-10;"),
                  (r"(solver\s+PBiCG;\s*preconditioner\s+DILU;\s*tolerance\s+)1e-09;",
                   r"\g<1>1e-12;")])
+    if dn:
+        # Dirichlet-Neumann coupling with IQN-ILS acceleration in place of
+        # the tutorial's Robin-Neumann fixed relaxation: the Robin
+        # coefficients are derived for Euler/backward and the loop diverges
+        # once the fluid's ddt scheme is BDF 3 or 4. The IQN-ILS residual
+        # levels off near 1e-7 at the finer steps (its least-squares modes
+        # become collinear as the increments shrink), so its tolerance is
+        # 1e-7 and a step that reaches only that is accepted
+        mc.edit(case/"0"/"fluid"/"U",
+                [(r"type\s+elasticWallVelocity;", "type         newMovingWallVelocity;")])
+        mc.edit(case/"0"/"fluid"/"p",
+                [(r"type\s+elasticWallPressure;\s*\n\s*value\s+uniform 0;",
+                  "type        zeroGradient;")])
+        mc.edit(case/"constant"/"fsiProperties",
+                [(r"fluidSolidInterface\s+fixedRelaxation;",
+                  "fluidSolidInterface    IQNILS;"),
+                 (r"\nfixedRelaxationCoeffs\n", "\nIQNILSCoeffs\n"),
+                 (r"relaxationFactor\s+1;", "relaxationFactor    0.05;"),
+                 (r"outerCorrTolerance\s+\S+;",
+                  "outerCorrTolerance  1e-7;\n    allowUnconvergedCoupling yes;"),
+                 (r"nOuterCorr\s+100;", "nOuterCorr          200;")])
     f = FAMILIES[family]
     mc.edit(case/"system"/"fluid"/"fvSchemes",
             [(r"(ddtSchemes\s*\{\s*default\s+)Euler;", rf"\g<1>{f['ddt']};")])
@@ -143,16 +165,17 @@ def diff(a, b):
     return math.sqrt(np.mean((x[m] - np.interp(t[m], tb, xb))**2))
 
 
-def analyse(families, dts, end_time, smooth=False):
+def analyse(families, dts, end_time, smooth=False, dn=False):
     dts = sorted(dts, reverse=True)
     lines = [f"# Time order of the coupled FSI + 1D tube (self-convergence, "
              f"0-{1e3*end_time:g} ms"
-             + (", smooth sin^2 pulse)" if smooth else ", the tutorial's step pulse)"),
+             + (", smooth sin^2 pulse" if smooth else ", the tutorial's step pulse")
+             + (", Dirichlet-Neumann IQN-ILS)" if dn else ", Robin-Neumann)"),
              ""]
     finest = {}
     table = {}
     for fam in families:
-        names = [run_name(fam, dt, smooth) for dt in dts]
+        names = [run_name(fam, dt, smooth, dn) for dt in dts]
         done = [n for n in names if mc.finished(RUNS/n)]
         failed = [n for n in names if n not in done]
         if failed:
@@ -196,10 +219,11 @@ def analyse(families, dts, end_time, smooth=False):
                 cells.append(f"{key}: {diff(sig[key], ref[key])/math.sqrt(np.mean(x**2)):.2e}")
             lines.append(f"- {fam}: " + ", ".join(cells))
         lines.append("")
-    out = HERE/("orders_smooth.md" if smooth else "orders.md")
+    suffix = ("_smooth" if smooth else "") + ("_dn" if dn else "")
+    out = HERE/f"orders{suffix}.md"
     out.write_text("\n".join(lines))
     print("\n".join(lines))
-    plot(table, "orders_smooth.png" if smooth else "orders.png")
+    plot(table, f"orders{suffix}.png")
 
 
 def plot(table, filename):
@@ -241,6 +265,8 @@ def main():
                     help="smooth sin^2 inlet pulse instead of the step")
     ap.add_argument("--tight", action="store_true",
                     help="FSI tolerance 1e-9, p 1e-10, U 1e-12")
+    ap.add_argument("--dn", action="store_true",
+                    help="Dirichlet-Neumann IQN-ILS coupling instead of Robin-Neumann")
     ap.add_argument("--analyse", action="store_true", help="analyse only")
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
@@ -248,11 +274,12 @@ def main():
     dts = [float(x) for x in args.dts.split(",")]
     if not args.analyse:
         RUNS.mkdir(exist_ok=True)
-        names = [make(f, dt, args.endTime, args.force, args.smooth, args.tight)
+        names = [make(f, dt, args.endTime, args.force, args.smooth, args.tight,
+                      args.dn)
                  for f in families for dt in dts]
         with ThreadPoolExecutor(args.jobs) as pool:
             list(pool.map(lambda n: run(n, args.ranks), names))
-    analyse(families, dts, args.endTime, args.smooth)
+    analyse(families, dts, args.endTime, args.smooth, args.dn)
 
 
 if __name__ == "__main__":

@@ -135,9 +135,9 @@ runTimeModifiable yes;
 """ + TAIL
 
 
-def control_3d(dt):
-    start = T_STATE
-    end = T_STATE + N_CYCLES*T_CYCLE
+def control_3d(dt, start=T_STATE, end=None):
+    if end is None:
+        end = T_STATE + N_CYCLES*T_CYCLE
     fos = ""
     for name, z in (("mid", PROBE_X - L_STUB), ("in", DX), ("out", L_3D - DX)):
         for suffix, op, field in (("P", "areaAverage", "p"), ("Q", "sum", "phi")):
@@ -378,27 +378,36 @@ def make_restart_runs(dt, force):
         return
     if case.exists():
         shutil.rmtree(case)
-    for d in ("constant", "system", f"{T_STATE:g}"):
+    write_coupled(case, dt, T_STATE, T_STATE + N_CYCLES*T_CYCLE, q0, state)
+    r_mean = math.sqrt(radius(L_STUB)*radius(L_SEG - L_STUB))
+    print(f"rigid3D: restart at {T_STATE} s with Q = {q0*1e6:.2f} ml/s "
+          f"(plug {q0/(math.pi*r_mean**2):.3f} m/s), dt = {dt:g} s, "
+          f"{N_CYCLES} cycles, {int(round(L_3D/DX))} axial cells")
+
+
+def write_coupled(case, dt, start, end, q0=0.0, state=None):
+    """The coupled pimpleFoam case from start to end: restarted from a
+    circulation1DState file with the 3D as plug flow at q0 (the tutorial), or
+    from rest (state None, the order study)"""
+    for d in ("constant", "system", f"{start:g}"):
         (case/d).mkdir(parents=True)
-    shutil.copy(state, case/f"{T_STATE:g}"/"circulation1DState")
+    if state is not None:
+        shutil.copy(state, case/f"{start:g}"/"circulation1DState")
     props = properties("coupled", dt).replace("SEEDQ", f"{q0:.9g}")
     (case/"constant"/"circulation1DProperties").write_text(props)
     (case/"constant"/"transportProperties").write_text(transport())
     (case/"constant"/"turbulenceProperties").write_text(turbulence())
     nz = int(round(L_3D/DX))
     (case/"system"/"blockMeshDict").write_text(block_mesh(nz))
-    (case/"system"/"controlDict").write_text(control_3d(dt))
+    (case/"system"/"controlDict").write_text(control_3d(dt, start, end))
     (case/"system"/"topoSetDict").write_text(
         topo_set([("mid", PROBE_X - L_STUB), ("in", DX), ("out", L_3D - DX)]))
     (case/"system"/"fvSolution").write_text(fv_solution())
     shutil.copy(HERE.parent/"rigidSegment3D"/"base"/"system"/"fvSchemes",
                 case/"system"/"fvSchemes")
     r_mean = math.sqrt(radius(L_STUB)*radius(L_SEG - L_STUB))
-    uz = q0/(math.pi*r_mean**2)
-    (case/f"{T_STATE:g}"/"p").write_text(field_p())
-    (case/f"{T_STATE:g}"/"U").write_text(field_U(uz))
-    print(f"rigid3D: restart at {T_STATE} s with Q = {q0*1e6:.2f} ml/s "
-          f"(plug {uz:.3f} m/s), dt = {dt:g} s, {N_CYCLES} cycles, {nz} axial cells")
+    (case/f"{start:g}"/"p").write_text(field_p())
+    (case/f"{start:g}"/"U").write_text(field_U(q0/(math.pi*r_mean**2)))
 
 
 def main():

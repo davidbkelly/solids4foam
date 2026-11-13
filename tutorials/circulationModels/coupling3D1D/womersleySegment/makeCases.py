@@ -76,8 +76,8 @@ FoamFile
 TAIL = "\n// ************************************************************************* //\n"
 
 
-def control_dict(alpha, dt):
-    T = end_time(alpha)
+def control_dict(alpha, dt, end=None):
+    T = end if end is not None else end_time(alpha)
     body = f"""application     pimpleFoam;
 startFrom       startTime;
 startTime       0;
@@ -227,21 +227,23 @@ def run_name(alpha):
     return f"alpha{alpha:g}"
 
 
-def make(alpha, dt, force):
-    case = RUNS/run_name(alpha)
+def make(alpha, dt, force, name=None, end=None):
+    """name and end override the run's name and end time (the order study)"""
+    case = RUNS/(name or run_name(alpha))
     if case.exists() and finished(case) and not force:
         print(f"{case.name}: finished, kept")
-        return
+        return case
     if case.exists():
         shutil.rmtree(case)
     shutil.copytree(BASE, case)
     edit(case/"constant"/"transportProperties",
          [(r"nu\s+\[0 2 -1 0 0 0 0\]\s+[\d.e+-]+;",
            f"nu              [0 2 -1 0 0 0 0] {nu(alpha):.6g};")])
-    (case/"system"/"controlDict").write_text(control_dict(alpha, dt))
+    (case/"system"/"controlDict").write_text(control_dict(alpha, dt, end))
     (case/"constant"/"circulation1DProperties").write_text(properties())
-    print(f"{case.name}: nu = {nu(alpha):.4g} m2/s, {end_time(alpha):g} s, "
-          f"dt = {dt:g} s")
+    print(f"{case.name}: nu = {nu(alpha):.4g} m2/s, "
+          f"{end if end is not None else end_time(alpha):g} s, dt = {dt:g} s")
+    return case
 
 
 def main():

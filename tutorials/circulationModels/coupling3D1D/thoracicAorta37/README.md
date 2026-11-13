@@ -98,3 +98,43 @@ Planned on this case: static against total pressure continuity at the
 ports, the order in dt at physiological amplitude, and the compliant segment
 with solids4foam FSI (silicone wall, E = 1.2 MPa, h = 0.34 mm, as the in
 vitro tube).
+
+## Order in time
+
+`../orderStudy.py --case thoracicAorta37` runs the coupled case from rest
+over the first systole (0-0.3 s) at dt = 2, 1, 0.5 and 0.25 ms, with the
+fluid ddt scheme and the implicit coupling order both at q = 1 (`Euler`), 2
+(`backward`), 3 (`BDF 3`) and 4 (`BDF 4`), the network at CFL 0.1 and the
+PIMPLE loop to a pressure residual of 1e-10. For this study the network
+starts in equilibrium at the terminal pressure (432.6 Pa) and the inflow
+rises under a sin^2 ramp of 50 ms: the tutorial's own start (P = 0 against
+the terminals, the inflow's Fourier series at its t = 0 value) launches
+fronts one 1D cell wide, 0.3 ms at the port, i.e. features at the scale of
+dt (`orders_impulsiveStart.md` has that version; the orders below are the
+same either way). Observed orders by self-convergence (`orders.md`,
+`plots/orders.png`), port flow / port pressure:
+
+| dt triple [ms] | Euler | backward | BDF 3 | BDF 4 |
+|---|---|---|---|---|
+| 2 / 1 / 0.5 | 0.96 / 0.88 | 2.00 / 2.01 | 2.34 / 2.38 | 1.08 / 1.30 |
+| 1 / 0.5 / 0.25 | 0.98 / 0.95 | 1.95 / 1.89 | 0.61 / 0.54 | 0.21 / 0.16 |
+
+Euler and backward converge at their orders. BDF 3 and BDF 4 do not reach
+theirs on this case: their differences between successive steps stop
+falling at about 3e-6 of the signal (RMS; 3e-5 of the peak flow at most),
+spread uniformly over the active part of the window and of the same size
+for both schemes, i.e. a floor rather than an order. The finest BDF 3 and
+BDF 4 runs agree to 3.3e-6 of the flow and with the finest backward run to
+1.6e-5. The floor is not the 1D network: the 1D limiter off and SSPRK3
+(`orders_none_SSPRK3` variant, since removed) and the network at CFL 0.02
+instead of 0.1 (`orders_cfl0.02.md`) change the runs by less than 1e-7. It
+is not the start (the smooth start above leaves it unchanged), not the
+PIMPLE convergence (the pressure residual reaches 3e-12 every step), and
+not the coupling order (the coupler runs at order 4). What in the 3D-1D
+exchange of this case, and not of the uniform-vessel cases
+(`dobroserdova2016`, `womersleySegment`, which reach 3.9 and 3.8), carries
+a dt-independent 3e-6 is open; candidates are the tapered stubs' end
+treatment and the junction nodes at the stubs' far ends. For the physics
+measured here (differences of 4 % of the pulse) a floor at 3e-6 is of no
+consequence, but it is the item to trace before claiming fourth order on a
+network.

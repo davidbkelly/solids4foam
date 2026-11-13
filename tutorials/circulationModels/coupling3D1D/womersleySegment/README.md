@@ -89,3 +89,24 @@ What this adds to `rigidSegment3D`: the coupling is exact for a 3D side
 whose velocity profile is not uniform, i.e. the exchange of mean pressure
 and flow at the ports loses nothing when the 3D flow is a genuine viscous
 solution.
+
+## Order in time
+
+`../orderStudy.py --case womersleySegment` repeats the alpha = 6 run from
+rest over the first 0.6 s of the ramped incident wave at dt = 4, 2, 1 and
+0.5 ms, with the fluid ddt scheme and the implicit coupling order both at
+q = 1 (`Euler`), 2 (`backward`), 3 (`BDF 3`) and 4 (`BDF 4`), the 1D
+vessels at CFL 0.1 and the PIMPLE loop to a pressure residual of 1e-10.
+Observed orders by self-convergence (`orders.md`, `plots/orders.png`), the
+RMS of the port flows and pressures (the four signals give the same orders
+to two decimals, the pipe being rigid):
+
+| dt triple [ms] | Euler | backward | BDF 3 | BDF 4 |
+|---|---|---|---|---|
+| 4 / 2 / 1 | 0.99 | 1.97 | 2.79 | 3.31 |
+| 2 / 1 / 0.5 | 1.00 | 1.99 | 2.92 | 3.76 |
+
+The finest Euler, backward and BDF 3 runs differ from the finest BDF 4 run
+by 1.4e-4, 4.8e-7 and 1.4e-8 of the flow: the 3D viscous solution and the
+coupling converge together at the scheme's order, down to the 1e-8 level
+where the converged runs agree.
