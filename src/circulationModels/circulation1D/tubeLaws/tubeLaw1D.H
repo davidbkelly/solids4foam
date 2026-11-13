@@ -34,6 +34,11 @@ Description
 
     dI/dA = c/A for every tube law.
 
+    A law linearised about a reference state (linearisedTubeLaw) reports
+    nonlinear() false and the reference area as velocityArea(): the vessel
+    and the nodes then solve the linearised equations, with U = Q/Aref and
+    without the convective and dynamic-pressure terms.
+
     A tube law describes the wall at one position s = x/L along the vessel.
     A vessel whose properties vary along it (a tapered vessel, uniform() is
     false) holds one tube law per cell, built at the cell centre; a uniform
@@ -140,6 +145,15 @@ public:
 
         //- Area for invariant integral I, the inverse of invariant() [m2]
         virtual scalar areaFromInvariant(const scalar I) const = 0;
+
+        //- False if the law is linearised about a reference state: the
+        //  equations are then solved without their convective and
+        //  dynamic-pressure terms
+        virtual bool nonlinear() const { return true; }
+
+        //- The area the velocity is the flow divided by, U = Q/velocityArea:
+        //  A, or the reference area of a linearised law [m2]
+        virtual scalar velocityArea(const scalar A) const { return A; }
 
         //- Print the parameters
         virtual void summary(Ostream& os) const = 0;

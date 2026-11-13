@@ -169,7 +169,45 @@ Foam::scalar Foam::node1D::outgoingInvariant
     scalar Qface;
     vessel(i).faceState(end(i), Aface, Qface);
 
-    return Qface/Aface + sign(i)*vessel(i).endLaw(end(i)).invariant(Aface);
+    const tubeLaw1D& law = vessel(i).endLaw(end(i));
+
+    return Qface/law.velocityArea(Aface) + sign(i)*law.invariant(Aface);
+}
+
+
+Foam::scalar Foam::node1D::flow
+(
+    const tubeLaw1D& law,
+    const scalar A,
+    const scalar U
+)
+{
+    return law.velocityArea(A)*U;
+}
+
+
+Foam::scalar Foam::node1D::dFlowdA
+(
+    const tubeLaw1D& law,
+    const scalar A,
+    const scalar U,
+    const scalar s
+)
+{
+    // d(A U)/dA on the characteristic U = W - s I(A), dI/dA = c/A; for a
+    // linearised law Aref dU/dA = -s c
+    return (law.nonlinear() ? U : 0) - s*law.waveSpeed(A);
+}
+
+
+Foam::scalar Foam::node1D::dynamicPressure
+(
+    const tubeLaw1D& law,
+    const scalar rho,
+    const scalar U
+)
+{
+    return law.nonlinear() ? 0.5*rho*U*U : 0;
 }
 
 
@@ -189,8 +227,8 @@ void Foam::node1D::setFlowBoundary(const label i, const scalar Qn)
         [&](const scalar a, scalar& dRdA)
         {
             const scalar U = W - s*law.invariant(a);
-            dRdA = U - s*law.waveSpeed(a);
-            return a*U - Qv;
+            dRdA = dFlowdA(law, a, U, s);
+            return flow(law, a, U) - Qv;
         },
         Af
     );

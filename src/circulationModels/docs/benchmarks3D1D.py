@@ -7,9 +7,15 @@ Reference solutions for verifying 3D-1D coupling (see BENCHMARKS3D1D.md).
     benchmarks3D1D.py mms      symbolic check of the Dobroserdova, Olshanskii
                                & Simakov (2016) manufactured solution, the
                                corrected 3D pressure and the source terms
+    benchmarks3D1D.py csv [DIR]
+                               the reference time series and profiles of the
+                               rigid-segment benchmark as specified in
+                               BENCHMARKS3D1D.md (section 1, "Specification"),
+                               as CSV files in DIR (default: reference/)
 
-Needs numpy and scipy (rigid) and sympy (mms).
+Needs numpy and scipy (rigid, csv) and sympy (mms).
 """
+import math
 import sys
 
 import numpy as np
@@ -179,8 +185,121 @@ def checkMMS():
           sp.simplify(m["p3D"].subs(x, 1)))
 
 
+# --------------------------------------------------------------------------
+# The rigid-segment benchmark as specified (BENCHMARKS3D1D.md, section 1):
+# the reference a code is compared with, written as CSV
+# --------------------------------------------------------------------------
+
+class RigidSegment:
+    """The benchmark's data, SI. The 1D vessels: the single-pulse vessel of
+    Boileau et al. (2015), Table II, with the sqrtElastic tube law
+    linearised at the diastolic area (c0 = 6.1721 m/s). The pipe: length l,
+    cross-section A3D. The inflow: Boileau Eq. 14, Q = Qpeak
+    exp(-1e4 (t - 0.05)^2), i.e. a Gaussian of standard deviation
+    sigma = 1/sqrt(2e4) s peaking at t = 0.05 s, times scale."""
+
+    rho = 1050.0
+    R = 0.01                    # vessel radius at the diastolic pressure
+    h = 1.5e-3                  # wall thickness
+    E = 400e3                   # Young's modulus
+    L1 = 1.0                    # proximal vessel (flow inlet to pipe)
+    L2 = 1.0                    # distal vessel (pipe to absorbing end)
+    l = 0.08                    # pipe length
+    Qpeak = 1e-6
+    t_peak = 0.05
+    sigma = 1/math.sqrt(2e4)
+
+    def __init__(self, A3D=None, scale=1.0):
+        # The pipe's cross-section: the discrete patch area of the 3D mesh
+        # (the tutorial's 32-sided polygon by default), or pi R^2 for a 1D
+        # reduction of the pipe
+        self.A3D = A3D if A3D is not None else 0.5*32*self.R**2*math.sin(2*math.pi/32)
+        self.scale = scale
+        self.A0 = math.pi*self.R**2
+        beta = 4/3*math.sqrt(math.pi)*self.E*self.h
+        self.c0 = math.sqrt(beta/(2*self.rho*self.A0))*self.A0**0.25
+        self.Zc = self.rho*self.c0/self.A0
+        self.L = self.rho*self.l/self.A3D            # inertance
+        self.tau = self.L/(2*self.Zc)
+        self.P = self.Zc*self.Qpeak*scale           # incident peak
+        self.t_arrive = self.t_peak + self.L1/self.c0
+
+    def pinc(self, T):
+        return gaussian(T, self.P, self.sigma)
+
+    def pt(self, T):
+        return transmitted(T, self.P, self.sigma, self.tau)
+
+    def pipe(self, t):
+        """Q through the pipe, P at its inlet and outlet"""
+        T = np.asarray(t, dtype=float) - self.t_arrive
+        p = self.pt(T)
+        return p/self.Zc, 2*self.pinc(T) - p, p
+
+    def profile(self, vessel, x, t):
+        """P, Q and A along a vessel ("proximal" or "distal", x from its
+        upstream end) at time t: the incident, reflected and, at the flow
+        inlet (Gamma = +1 in pressure), re-reflected waves"""
+        x = np.asarray(x, dtype=float)
+        c0, Zc = self.c0, self.Zc
+        if vessel == "proximal":
+            d = self.L1 - x
+            pr = lambda T: self.pinc(T) - self.pt(T)
+            fwd = self.pinc(t - x/c0 - self.t_peak) + pr(t - self.t_arrive - (self.L1 + x)/c0)
+            bwd = pr(t - self.t_arrive - d/c0)
+        else:
+            fwd = self.pt(t - self.t_arrive - x/c0)
+            bwd = np.zeros_like(x)
+        P = fwd + bwd
+        Q = (fwd - bwd)/Zc
+        A = self.A0*(1 + P/(self.rho*c0**2))
+        return P, Q, A
+
+    def profile_avg(self, vessel, x, dx, t, n=5):
+        """Cell averages of profile() over [x - dx/2, x + dx/2] by n-point
+        Gauss-Legendre quadrature: what a finite-volume code's cell values
+        should be compared with"""
+        g, w = np.polynomial.legendre.leggauss(n)
+        acc = None
+        for gi, wi in zip(g, w):
+            vals = self.profile(vessel, x + 0.5*dx*gi, t)
+            acc = [wi*v for v in vals] if acc is None else [a + wi*v for a, v in zip(acc, vals)]
+        return [a/2 for a in acc]
+
+
+def writeCSV(outdir="reference"):
+    import os
+    os.makedirs(outdir, exist_ok=True)
+    b = RigidSegment()
+    hdr = (f"# rigid-segment benchmark (BENCHMARKS3D1D.md): rho {b.rho}, R {b.R}, "
+           f"h {b.h}, E {b.E}, c0 {b.c0:.10g} m/s, Zc {b.Zc:.10g} Pa s/m3, "
+           f"pipe l {b.l} m, A3D {b.A3D:.10g} m2 (32-gon), L {b.L:.10g} kg/m4, "
+           f"tau {b.tau:.10g} s, inflow Qpeak {b.Qpeak} m3/s at t = {b.t_peak} s, "
+           f"sigma {b.sigma:.10g} s, incident peak {b.P:.10g} Pa\n")
+    t = np.round(np.arange(0, 0.35 + 1e-9, 1e-4), 6)
+    Q, P1, P2 = b.pipe(t)
+    with open(os.path.join(outdir, "rigidSegment_pipe.csv"), "w") as f:
+        f.write(hdr + "t [s],Q [m3/s],P1 pipe inlet [Pa],P2 pipe outlet [Pa]\n")
+        for row in zip(t, Q, P1, P2):
+            f.write(",".join(f"{v:.12g}" for v in row) + "\n")
+    for vessel, L in (("proximal", b.L1), ("distal", b.L2)):
+        x = np.linspace(0, L, 2001)
+        P, Qx, A = b.profile(vessel, x, 0.35)
+        with open(os.path.join(outdir, f"rigidSegment_{vessel}_t0.35.csv"), "w") as f:
+            f.write(hdr + "x [m],P [Pa],Q [m3/s],A [m2]   (point values at t = 0.35 s;"
+                    " compare cell averages with profile_avg())\n")
+            for row in zip(x, P, Qx, A):
+                f.write(",".join(f"{v:.12g}" for v in row) + "\n")
+    print(f"written to {outdir}/: rigidSegment_pipe.csv, "
+          "rigidSegment_proximal_t0.35.csv, rigidSegment_distal_t0.35.csv")
+    print(hdr.strip("# \n"))
+
+
 if __name__ == "__main__":
     what = sys.argv[1:] or ["rigid", "mms"]
+    if what[0] == "csv":
+        writeCSV(*what[1:2])
+        sys.exit()
     for w in what:
         {"rigid": checkRigid, "mms": checkMMS}[w]()
         print()

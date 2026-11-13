@@ -66,7 +66,7 @@ void Foam::pressureInlet::setBoundary(const scalar t)
     const scalar A = law.area(P);
     const scalar U = W - s*law.invariant(A);
 
-    vessel(0).setBoundaryState(end(0), A, A*U);
+    vessel(0).setBoundaryState(end(0), A, flow(law, A, U));
 }
 
 // ************************************************************************* //

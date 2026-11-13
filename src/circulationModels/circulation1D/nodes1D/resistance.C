@@ -63,15 +63,20 @@ void Foam::resistance::setBoundary(const scalar t)
         [&](const scalar a, scalar& dRdA)
         {
             const scalar U = W - s*law.invariant(a);
-            const scalar Qn = s*a*U;
-            const scalar dQn = s*(U - s*law.waveSpeed(a));
+            const scalar Qn = s*flow(law, a, U);
+            const scalar dQn = s*dFlowdA(law, a, U, s);
             dRdA = law.dPdA(a) - R_*dQn;
             return law.pressure(a) - Pout_ - R_*Qn;
         },
         Af
     );
 
-    vessel(0).setBoundaryState(end(0), A, A*(W - s*law.invariant(A)));
+    vessel(0).setBoundaryState
+    (
+        end(0),
+        A,
+        flow(law, A, W - s*law.invariant(A))
+    );
 }
 
 

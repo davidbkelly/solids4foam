@@ -16,9 +16,14 @@ with Pt in closed form (erfc). This compares
     pipe's own output (Q, P1, P2) against the closed form; figure
     plots/rigidSegment.png;
   * the order/n<N> runs: the error of P along both vessels at t = 0.6 s,
-    relative to the peak, and its order.
+    relative to the peak, and its order;
+  * the order/linear/n<N> runs: the linearised 1D equations at full
+    amplitude with the fourth-order scheme (kExact 3, RK4), of which the
+    closed form is the exact solution: the same errors, against the cell
+    averages of the closed form (five-point Gauss quadrature), so that the
+    comparison is of fourth order too.
 
-Both use the inflow of Boileau Eq. 14 x 1e-3, linear to about 1e-6.
+The first two use the inflow of Boileau Eq. 14 x 1e-3, linear to about 1e-6.
 
 Writes results.md. Needs numpy and scipy (matplotlib for the figure).
 """
@@ -63,17 +68,32 @@ def exact_profile(vessel, x, t, P):
     return pt(t - T_ARRIVE - x/C0, P)
 
 
+GAUSS = np.polynomial.legendre.leggauss(5)
+
+
+def exact_profile_avg(vessel, x, dx, t, P):
+    """Cell averages of the closed form over [x - dx/2, x + dx/2]"""
+    return sum(w*exact_profile(vessel, x + 0.5*dx*g, t, P)
+               for g, w in zip(*GAUSS))/2
+
+
 def out_dir(case):
     return case / "postProcessing" / "circulation1D" / "0"
 
 
-def profile_errors(case, scale):
+def profile_errors(case, scale, averaged=False):
+    """L1, L2 and max error of P along both vessels at T_END, relative to
+    the incident peak: against the closed form's point values at the cell
+    centres (second-order comparison) or its cell averages"""
     P = Z0*scale*QPEAK
     e = []
     for v in ("proximal", "distal"):
         a = np.loadtxt(out_dir(case)/"profiles"/f"{T_END:g}"/f"{v}.dat",
                        comments="#")[1:-1]
-        e.append(np.abs(a[:, 3] - exact_profile(v, a[:, 0], T_END, P))/P)
+        x = a[:, 0]
+        ex = (exact_profile_avg(v, x, L_VESSEL/len(x), T_END, P) if averaged
+              else exact_profile(v, x, T_END, P))
+        e.append(np.abs(a[:, 3] - ex)/P)
     e = np.concatenate(e)
     return np.mean(e), math.sqrt(np.mean(e**2)), e.max()
 
@@ -135,20 +155,38 @@ def base():
     return lines, (t, Q, P1, P2, exQ, exP1, exP2, prox, exProx, dist, exDist, P)
 
 
-def orders():
+def orders(linear=False):
+    """The order/n* runs (second order, inflow x 1e-3) or, with linear, the
+    order/linear/n* runs (linearised equations at full amplitude, fourth
+    order, against the closed form's cell averages)"""
+    where = HERE/"order"/"linear" if linear else HERE/"order"
     rows = []
-    for d in sorted((HERE/"order").glob("n*"), key=lambda p: int(p.name[1:])):
+    for d in sorted(where.glob("n*"), key=lambda p: int(p.name[1:])):
         f = out_dir(d)/"profiles"/f"{T_END:g}"/"distal.dat"
         if f.is_file():
             n = int(d.name[1:])
-            rows.append((n, L_VESSEL/n) + profile_errors(d, SCALE))
+            rows.append(
+                (n, L_VESSEL/n)
+              + profile_errors(d, 1.0 if linear else SCALE, averaged=linear)
+            )
     lines = []
     if not rows:
         return lines, rows
 
     lines += [
+        "## Order of accuracy, linearised equations at full amplitude, "
+        "kExact 3 + RK4 (both vessels at t = 0.6 s)" if linear else
         "## Order of accuracy (both vessels at t = 0.6 s)",
         "",
+    ]
+    if linear:
+        lines += [
+            "The closed form is the exact solution of the linearised "
+            "equations at any amplitude (inflow x 1, incident peak "
+            f"{Z0*QPEAK:.4f} Pa); errors against its cell averages.",
+            "",
+        ]
+    lines += [
         "| cells per vessel | dx [mm] | L1 | order | L2 | order | max | order |",
         "|---|---|---|---|---|---|---|---|",
     ]
@@ -179,7 +217,7 @@ def orders():
     return lines, rows
 
 
-def figure(data, rows):
+def figure(data, rows, rows4=()):
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -219,12 +257,20 @@ def figure(data, rows):
         ax = axs[-1]
         dx = np.array([r[1] for r in rows])*1e3
         for k, lab in ((2, "L1"), (3, "L2"), (4, "max")):
-            ax.loglog(dx, [r[k] for r in rows], "o-", ms=4, label=lab)
+            ax.loglog(dx, [r[k] for r in rows], "o-", ms=4,
+                      label=lab + " (order 2, x 1e-3)")
         ax.loglog(dx, rows[-1][3]*(dx/dx[-1])**2, "k:", lw=1, label="slope 2")
+        if rows4:
+            dx4 = np.array([r[1] for r in rows4])*1e3
+            for k, lab in ((2, "L1"), (3, "L2"), (4, "max")):
+                ax.loglog(dx4, [r[k] for r in rows4], "s--", ms=4,
+                          label=lab + " (linearised, order 4)")
+            ax.loglog(dx4, rows4[-1][3]*(dx4/dx4[-1])**4, "k-.", lw=1,
+                      label="slope 4")
         ax.set_xlabel("dx [mm]")
         ax.set_ylabel("error / peak")
-        ax.set_title("Convergence (linear amplitude)")
-        ax.legend(frameon=False, fontsize=8)
+        ax.set_title("Convergence to the closed form")
+        ax.legend(frameon=False, fontsize=7)
 
     fig.tight_layout()
     fig.savefig(HERE/"plots"/"rigidSegment.png", dpi=150)
@@ -234,12 +280,13 @@ def main():
     lines = ["# Rigid segment (inertance) against the closed form", ""]
     b, data = base()
     o, rows = orders()
-    if not b and not o:
+    o4, rows4 = orders(linear=True)
+    if not b and not o and not o4:
         sys.exit("No finished runs: run ./Allrun first")
-    lines += b + o
+    lines += b + o + o4
     (HERE/"results.md").write_text("\n".join(lines))
     print("\n".join(lines))
-    figure(data, rows)
+    figure(data, rows, rows4)
 
 
 if __name__ == "__main__":

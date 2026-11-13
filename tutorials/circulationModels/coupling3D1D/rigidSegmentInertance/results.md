@@ -26,3 +26,18 @@ Reflected peak 8.4127 mPa against 8.3535 mPa; energy (reflected + transmitted)/i
 | 6400 | 0.3125 | 2.978e-05 | 1.98 | 9.672e-05 | 1.98 | 6.580e-04 | 1.97 |
 
 Least-squares order over the 4 finest meshes: L1 1.99, L2 1.98, max 1.97.
+
+## Order of accuracy, linearised equations at full amplitude, kExact 3 + RK4 (both vessels at t = 0.6 s)
+
+The closed form is the exact solution of the linearised equations at any amplitude (inflow x 1, incident peak 20.6288 Pa); errors against its cell averages.
+
+| cells per vessel | dx [mm] | L1 | order | L2 | order | max | order |
+|---|---|---|---|---|---|---|---|
+| 200 | 10 | 1.165e-03 |  | 3.747e-03 |  | 2.440e-02 |  |
+| 400 | 5 | 8.173e-05 | 3.83 | 2.797e-04 | 3.74 | 2.013e-03 | 3.60 |
+| 800 | 2.5 | 5.110e-06 | 4.00 | 1.757e-05 | 3.99 | 1.286e-04 | 3.97 |
+| 1600 | 1.25 | 3.173e-07 | 4.01 | 1.091e-06 | 4.01 | 7.998e-06 | 4.01 |
+| 3200 | 0.625 | 1.981e-08 | 4.00 | 6.793e-08 | 4.01 | 4.979e-07 | 4.01 |
+| 6400 | 0.3125 | 1.387e-09 | 3.84 | 4.239e-09 | 4.00 | 3.119e-08 | 4.00 |
+
+Least-squares order over the 4 finest meshes: L1 3.95, L2 4.01, max 4.00.

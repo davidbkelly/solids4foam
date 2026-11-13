@@ -21,6 +21,7 @@ Author
 \*---------------------------------------------------------------------------*/
 
 #include "vessel1D.H"
+#include "linearisedTubeLaw.H"
 #include "mathematicalConstants.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
@@ -103,6 +104,30 @@ Foam::vessel1D::vessel1D
         A_[i] = tubeLaw(i).area(P0);
     }
     Q_.setSize(nCells_, Q0);
+
+    // Linearised equations: the tube law becomes its tangent at the initial
+    // state, and the vessel and the nodes drop the nonlinear terms
+    if (dict.getOrDefault<bool>("linearised", false))
+    {
+        if (!uniform_)
+        {
+            FatalIOErrorInFunction(dict)
+                << "Vessel " << name_ << ": linearised is for uniform vessels"
+                << " only (this one is tapered)" << exit(FatalIOError);
+        }
+        if (Q0 != 0)
+        {
+            FatalIOErrorInFunction(dict)
+                << "Vessel " << name_ << ": linearised is about a state at"
+                << " rest; initialFlowRate must be 0" << exit(FatalIOError);
+        }
+        autoPtr<tubeLaw1D> law(laws_.set(0, nullptr));
+        laws_.set
+        (
+            0,
+            new linearisedTubeLaw(name_, dict, rho_, std::move(law), A_[0])
+        );
+    }
     A0_ = A_;
     Q0_ = Q_;
     dAdt_.setSize(nCells_, 0);
@@ -140,8 +165,12 @@ void Foam::vessel1D::coupledFlux
 {
     // Outgoing invariants: the left state is the out end of the left cell
     // (s = +1), the right state the in end of the right cell (s = -1)
-    const scalar WL = QL/AL + lawL.invariant(AL);
-    const scalar WR = QR/AR - lawR.invariant(AR);
+    const scalar WL = QL/lawL.velocityArea(AL) + lawL.invariant(AL);
+    const scalar WR = QR/lawR.velocityArea(AR) - lawR.invariant(AR);
+
+    // 1, or 0 for a linearised law (no convective or dynamic-pressure terms)
+    const scalar nlL = lawL.nonlinear() ? 1 : 0;
+    const scalar nlR = lawR.nonlinear() ? 1 : 0;
 
     scalar a = AL, b = AR, UL = 0, UR = 0;
 
@@ -157,15 +186,16 @@ void Foam::vessel1D::coupledFlux
 
         // Mass, R0 = a UL - b UR, and total pressure, R1 = HL - HR, with
         // their derivatives in a and b
-        const scalar R0 = a*UL - b*UR;
+        const scalar R0 =
+            lawL.velocityArea(a)*UL - lawR.velocityArea(b)*UR;
         const scalar R1 =
-            lawL.pressure(a) + 0.5*rho_*UL*UL
-          - lawR.pressure(b) - 0.5*rho_*UR*UR;
+            lawL.pressure(a) + nlL*0.5*rho_*UL*UL
+          - lawR.pressure(b) - nlR*0.5*rho_*UR*UR;
 
-        const scalar dQL = UL - cL;
-        const scalar dQR = -(UR + cR);
-        const scalar dHL = lawL.dPdA(a) - rho_*UL*cL/a;
-        const scalar dHR = lawR.dPdA(b) + rho_*UR*cR/b;
+        const scalar dQL = nlL*UL - cL;
+        const scalar dQR = -(nlR*UR + cR);
+        const scalar dHL = lawL.dPdA(a) - nlL*rho_*UL*cL/a;
+        const scalar dHR = lawR.dPdA(b) + nlR*rho_*UR*cR/b;
 
         // dQL da + dQR db = -R0, dHL da - dHR db = -R1
         const scalar da = (-R0 - dQR*R1/dHR)/(dQL + dQR*dHL/dHR);
@@ -195,9 +225,9 @@ void Foam::vessel1D::coupledFlux
             << " different walls did not converge" << exit(FatalError);
     }
 
-    FA = a*UL;
-    FQL = alpha_*FA*FA/a + lawL.fluxPressure(a);
-    FQR = alpha_*FA*FA/b + lawR.fluxPressure(b);
+    FA = lawL.velocityArea(a)*UL;
+    FQL = nlL*alpha_*FA*FA/a + lawL.fluxPressure(a);
+    FQR = nlR*alpha_*FA*FA/b + lawR.fluxPressure(b);
 }
 
 
@@ -226,8 +256,10 @@ void Foam::vessel1D::physicalFlux
     const label cell
 ) const
 {
+    const tubeLaw1D& law = tubeLaw(cell);
+
     FA = Q;
-    FQ = alpha_*Q*Q/A + tubeLaw(cell).fluxPressure(A);
+    FQ = (law.nonlinear() ? alpha_*Q*Q/A : 0) + law.fluxPressure(A);
 }
 
 
@@ -240,8 +272,17 @@ void Foam::vessel1D::eigenvalues
     const label cell
 ) const
 {
+    const tubeLaw1D& law = tubeLaw(cell);
+    const scalar c = law.waveSpeed(A);
+
+    if (!law.nonlinear())
+    {
+        lm = -c;
+        lp = c;
+        return;
+    }
+
     const scalar U = Q/A;
-    const scalar c = tubeLaw(cell).waveSpeed(A);
     const scalar d = Foam::sqrt(c*c + alpha_*(alpha_ - 1)*U*U);
 
     lm = alpha_*U - d;
@@ -496,10 +537,15 @@ void Foam::vessel1D::evaluateRhs(const riemannFlux1D& flux)
         // The cell average of the friction by two-point Gauss quadrature
         forAll(A_, i)
         {
+            const tubeLaw1D& law = tubeLaw(i);
             dAdt_[i] *= rdx;
             dQdt_[i] =
                 dQdt_[i]*rdx
-              - 0.5*KR_*(Qg1_[i]/Ag1_[i] + Qg2_[i]/Ag2_[i]);
+              - 0.5*KR_
+               *(
+                    Qg1_[i]/law.velocityArea(Ag1_[i])
+                  + Qg2_[i]/law.velocityArea(Ag2_[i])
+                );
         }
     }
     else
@@ -507,7 +553,8 @@ void Foam::vessel1D::evaluateRhs(const riemannFlux1D& flux)
         forAll(A_, i)
         {
             dAdt_[i] *= rdx;
-            dQdt_[i] = dQdt_[i]*rdx - KR_*Q_[i]/A_[i];
+            dQdt_[i] =
+                dQdt_[i]*rdx - KR_*Q_[i]/tubeLaw(i).velocityArea(A_[i]);
         }
     }
 }
@@ -653,7 +700,8 @@ void Foam::vessel1D::summary(Ostream& os) const
     }
     os  << "    initial state: A " << A << " m2, P " << law.pressure(A)
         << " Pa, c " << c << " m/s, Z = rho c/A " << rho_*c/A
-        << " Pa s/m3" << nl;
+        << " Pa s/m3" << (law.nonlinear() ? "" : "; linearised equations")
+        << nl;
 }
 
 // ************************************************************************* //

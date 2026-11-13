@@ -3,6 +3,7 @@
 
     python3 highOrder.py [run] [NPROC]      set up and run, then analyse
     python3 highOrder.py                    analyse what has run
+    python3 highOrder.py [run] [NPROC] --linear     against the closed form
 
 The vessels use the k-exact reconstruction of degree 3 with RK4 (fourth order
 in space and time, CFL 0.5), the pipe pimpleFoam with BDF 4; the 3D solution,
@@ -18,11 +19,21 @@ dt = 0.125 ms (self-convergence). The inflow is that of Boileau Eq. 14 at
 full amplitude: the 3D solution is exact at any amplitude, and at 1e-3 the
 round-off of the vessels (5e-7 of the peak) would hide a fourth-order error.
 
+With --linear the vessels solve the linearised 1D equations ("linearised
+true"), of which the closed form of BENCHMARKS3D1D.md is the exact solution
+at any amplitude, so every run is compared with the closed form (the
+profiles with its cell averages, by Gauss quadrature) and the refinement
+goes one level further (0.15625 mm, 0.125 ms). The closed form includes the
+return of the reflected pulse to the flow inlet, where it reflects with +1
+in pressure, which has reached the first centimetres of the proximal vessel
+at t = 0.35 s.
+
 Measured, relative to their peaks: the 3D flux (max over the steps), the
 pressures at the two pipe ends (the vessels' boundary states, point values),
 and the profiles along both vessels at t = 0.35 s (cell averages; the
 reference averaged onto the coarser cells), which hold the reflected and the
-transmitted pulse. Writes highOrder.md and plots/highOrder3D1D.png.
+transmitted pulse. Writes highOrder.md and plots/highOrder3D1D.png
+(highOrder_linear.md, plots/highOrder3D1D_linear.png with --linear).
 """
 import math
 import re
@@ -35,16 +46,65 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parents[3]/"src"/"circulationModels"/"docs"))
+sys.path.insert(0, str(HERE))
+
+from benchmarks3D1D import transmitted  # noqa: E402
+from sweep import C0, TAU, Z0  # noqa: E402
+
 RUNS = HERE/"runs"
 END = 0.35
 LEVELS = [(400, 2e-3), (800, 1e-3), (1600, 5e-4), (3200, 2.5e-4)]
 REF = (6400, 1.25e-4)
 COUPLINGS = [("implicit", 4), ("explicit", 4), ("implicit", 2),
              ("implicit", 1)]
+LINEAR = "--linear" in sys.argv
+
+# The closed form: the inflow of Boileau Eq. 14 at full amplitude
+L_VESSEL = 1.0
+SIGMA = 1/math.sqrt(2e4)
+T_PEAK = 0.05
+T_ARRIVE = T_PEAK + L_VESSEL/C0         # incident peak at the pipe
+P_INC = Z0*1e-6                         # incident peak [Pa]
 
 
 def name(scheme, order, n):
-    return f"HO_{scheme[0].upper()}{order}_n{n}"
+    return f"{'HOL' if LINEAR else 'HO'}_{scheme[0].upper()}{order}_n{n}"
+
+
+def pinc(T):
+    return P_INC*np.exp(-T**2/(2*SIGMA**2))
+
+
+def pt(T):
+    return transmitted(T, P_INC, SIGMA, TAU)
+
+
+def exact_pipe(t):
+    """Q through the pipe, P at its inlet and outlet"""
+    T = t - T_ARRIVE
+    p = pt(T)
+    return p/Z0, 2*pinc(T) - p, p
+
+
+def exact_profile(vessel, x, t):
+    """Q along a vessel at time t, x from its in end (point values)"""
+    if vessel == "proximal":
+        d = L_VESSEL - x                            # distance to the pipe
+        Tr = t - T_ARRIVE - d/C0                    # reflected, backward
+        Trr = t - T_ARRIVE - (L_VESSEL + x)/C0      # re-reflected at the
+        pr = lambda T: pinc(T) - pt(T)              # flow inlet, +1
+        return (pinc(t - x/C0 - T_PEAK) - pr(Tr) + pr(Trr))/Z0
+    return pt(t - T_ARRIVE - x/C0)/Z0
+
+
+GAUSS = np.polynomial.legendre.leggauss(5)
+
+
+def exact_profile_avg(vessel, x, dx, t):
+    """Cell averages of the closed form over [x - dx/2, x + dx/2]"""
+    return sum(w*exact_profile(vessel, x + 0.5*dx*g, t)
+               for g, w in zip(*GAUSS))/2
 
 
 def edit(path, pairs):
@@ -88,7 +148,8 @@ def setup(scheme, order, n, dt):
          "    polynomialOrder 3;"),
         (r"^(\s+nCells\s+)\S+;.*$", rf"\g<1>{n};"),
         (r"^(\s+scale\s+)\S+;.*$", r"\g<1>1;"),
-    ])
+    ] + ([(r"^(\s+initialPressure\s+0;)",
+           "\\1\n    linearised          true;")] if LINEAR else []))
     return case
 
 
@@ -114,49 +175,77 @@ def load(case, explicit):
     prof = {}
     for v in ("proximal", "distal"):
         f = out/"profiles"/f"{END:g}"/f"{v}.dat"
-        prof[v] = np.loadtxt(f, comments="#")[1:-1, 2]      # Q, cell averages
+        a = np.loadtxt(f, comments="#")[1:-1]
+        prof[v] = a[:, 2]                                   # Q, cell averages
+        prof[v + ".x"] = a[:, 0]
     return t, Q, P1, P2, prof
 
 
 def analyse():
-    refcase = RUNS/name("implicit", 4, REF[0])
-    if not finished(refcase):
-        sys.exit("No reference run: python3 highOrder.py run")
-    tr, Qr, P1r, P2r, profr = load(refcase, False)
-    key = np.rint(tr/REF[1]).astype(int)
+    levels = LEVELS + [REF] if LINEAR else LEVELS
 
-    def at(tc, f):
-        idx = {k: i for i, k in enumerate(key)}
-        return f[[idx[int(round(x/REF[1]))] for x in tc]]
+    if LINEAR:
+        peakQ = P_INC/Z0
+        peakP = np.abs(exact_pipe(np.linspace(0, END, 20001))[1]).max()
+        peakV = peakQ
+    else:
+        refcase = RUNS/name("implicit", 4, REF[0])
+        if not finished(refcase):
+            sys.exit("No reference run: python3 highOrder.py run")
+        tr, Qr, P1r, P2r, profr = load(refcase, False)
+        key = np.rint(tr/REF[1]).astype(int)
 
-    peakQ = np.abs(Qr).max()
-    peakP = np.abs(P1r).max()
-    peakV = max(np.abs(p).max() for p in profr.values())
+        def at(tc, f):
+            idx = {k: i for i, k in enumerate(key)}
+            return f[[idx[int(round(x/REF[1]))] for x in tc]]
+
+        peakQ = np.abs(Qr).max()
+        peakP = np.abs(P1r).max()
+        peakV = max(np.abs(profr[v]).max() for v in ("proximal", "distal"))
 
     results = {}
     for scheme, order in COUPLINGS:
         rows = []
-        for n, dt in LEVELS:
+        for n, dt in levels:
             case = RUNS/name(scheme, order, n)
             if not finished(case):
                 continue
             t, Q, P1, P2, prof = load(case, scheme == "explicit")
-            eQ = np.abs(Q - at(t, Qr)).max()/peakQ
-            eP = max(np.abs(P1 - at(t, P1r)).max(),
-                     np.abs(P2 - at(t, P2r)).max())/peakP
-            r = REF[0]//n
-            eV = max(np.abs(prof[v] - profr[v].reshape(n, r).mean(axis=1))
-                     .max() for v in prof)/peakV
+            if LINEAR:
+                Qx, P1x, P2x = exact_pipe(t)
+                eQ = np.abs(Q - Qx).max()/peakQ
+                eP = max(np.abs(P1 - P1x).max(), np.abs(P2 - P2x).max())/peakP
+                eV = max(np.abs(prof[v] - exact_profile_avg(
+                    v, prof[v + ".x"], L_VESSEL/n, END)).max()
+                    for v in ("proximal", "distal"))/peakV
+            else:
+                eQ = np.abs(Q - at(t, Qr)).max()/peakQ
+                eP = max(np.abs(P1 - at(t, P1r)).max(),
+                         np.abs(P2 - at(t, P2r)).max())/peakP
+                r = REF[0]//n
+                eV = max(np.abs(prof[v] - profr[v].reshape(n, r).mean(axis=1))
+                         .max() for v in ("proximal", "distal"))/peakV
             rows.append((n, dt, eQ, eP, eV))
         results[(scheme, order)] = rows
 
-    lines = ["# Rigid segment 3D-1D at fourth order: self-convergence", "",
-             "Vessels: kExact (degree 3) + RK4, CFL 0.5; pipe: pimpleFoam, "
-             "BDF 4; full amplitude. dx and dt refined together; reference: "
-             f"implicit 4 at {REF[0]} cells, dt = {REF[1]*1e3:g} ms. Errors "
-             "relative to the peaks: 3D flux, pressures at the pipe ends "
-             "(max of the two), profiles of Q along both vessels at "
-             f"t = {END} s.", ""]
+    if LINEAR:
+        lines = ["# Rigid segment 3D-1D at fourth order: against the closed "
+                 "form", "",
+                 "Vessels: linearised 1D equations, kExact (degree 3) + RK4, "
+                 "CFL 0.5; pipe: pimpleFoam, BDF 4; full amplitude. dx and "
+                 "dt refined together. Errors against the closed form "
+                 f"(tau = {TAU*1e3:.4f} ms with the 32-sided patch area), "
+                 "relative to the peaks: 3D flux, pressures at the pipe ends "
+                 "(max of the two), profiles of Q along both vessels at "
+                 f"t = {END} s (cell averages of the closed form).", ""]
+    else:
+        lines = ["# Rigid segment 3D-1D at fourth order: self-convergence", "",
+                 "Vessels: kExact (degree 3) + RK4, CFL 0.5; pipe: pimpleFoam, "
+                 "BDF 4; full amplitude. dx and dt refined together; "
+                 f"reference: implicit 4 at {REF[0]} cells, dt = "
+                 f"{REF[1]*1e3:g} ms. Errors relative to the peaks: 3D flux, "
+                 "pressures at the pipe ends (max of the two), profiles of Q "
+                 f"along both vessels at t = {END} s.", ""]
     for (scheme, order), rows in results.items():
         if not rows:
             continue
@@ -172,12 +261,13 @@ def analyse():
                              f"{math.log(rows[i-1][k]/r[k])/math.log(2):.2f}")
             lines.append("| " + " | ".join(cells) + " |")
         lines.append("")
-    (HERE/"highOrder.md").write_text("\n".join(lines))
+    suffix = "_linear" if LINEAR else ""
+    (HERE/f"highOrder{suffix}.md").write_text("\n".join(lines))
     print("\n".join(lines))
-    figure(results)
+    figure(results, suffix)
 
 
-def figure(results):
+def figure(results, suffix=""):
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -206,23 +296,28 @@ def figure(results):
             ax.loglog(dx, rows[-1][k]*(dx/dx[-1])**q*0.5, "k", ls=ls, lw=0.8,
                       label=f"slope {q}")
         ax.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
-        ax.set_xticks([0.3125, 0.625, 1.25, 2.5])
-        ax.set_xticklabels(["0.31", "0.62", "1.25", "2.5"])
+        ticks = [0.3125, 0.625, 1.25, 2.5]
+        labels = ["0.31", "0.62", "1.25", "2.5"]
+        if LINEAR:
+            ticks, labels = [0.15625] + ticks, ["0.16"] + labels
+        ax.set_xticks(ticks)
+        ax.set_xticklabels(labels)
         ax.set_xlabel("dx [mm], with dt = 0.8 ms per mm")
         ax.set_title(title)
-    axs[0].set_ylabel("error / peak")
+    axs[0].set_ylabel("error / peak" + (" (closed form)" if LINEAR else ""))
     axs[2].legend(frameon=False, fontsize=7, loc="lower right", ncol=2)
     fig.tight_layout()
-    fig.savefig(HERE/"plots"/"highOrder3D1D.png", dpi=150)
+    fig.savefig(HERE/"plots"/f"highOrder3D1D{suffix}.png", dpi=150)
 
 
 def main():
-    if sys.argv[1:2] == ["run"]:
-        nproc = int(sys.argv[2]) if len(sys.argv) > 2 else 6
+    args = [a for a in sys.argv[1:] if a != "--linear"]
+    if args[:1] == ["run"]:
+        nproc = int(args[1]) if len(args) > 1 else 6
         RUNS.mkdir(exist_ok=True)
-        cases = [setup("implicit", 4, *REF)]
+        cases = [] if LINEAR else [setup("implicit", 4, *REF)]
         for scheme, order in COUPLINGS:
-            for n, dt in LEVELS:
+            for n, dt in LEVELS + ([REF] if LINEAR else []):
                 cases.append(setup(scheme, order, n, dt))
         cases = [c for c in cases if c is not None]
         print(f"running {len(cases)} cases, {nproc} at a time", flush=True)

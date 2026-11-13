@@ -50,22 +50,23 @@ Foam::absorbing::absorbing
     const scalar A0 = v.A()[i];
     const scalar Q0 = v.Q()[i];
 
-    Win0_ = Q0/A0 - sign(0)*v.endLaw(end(0)).invariant(A0);
+    const tubeLaw1D& law = v.endLaw(end(0));
+    Win0_ = Q0/law.velocityArea(A0) - sign(0)*law.invariant(A0);
 }
 
 
 void Foam::absorbing::setBoundary(const scalar t)
 {
     const scalar s = sign(0);
+    const tubeLaw1D& law = vessel(0).endLaw(end(0));
 
     scalar Af;
     const scalar W = outgoingInvariant(0, Af);
 
-    const scalar A =
-        vessel(0).endLaw(end(0)).areaFromInvariant(0.5*s*(W - Win0_));
+    const scalar A = law.areaFromInvariant(0.5*s*(W - Win0_));
     const scalar U = 0.5*(W + Win0_);
 
-    vessel(0).setBoundaryState(end(0), A, A*U);
+    vessel(0).setBoundaryState(end(0), A, flow(law, A, U));
 }
 
 // ************************************************************************* //

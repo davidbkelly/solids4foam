@@ -169,3 +169,28 @@ order spoils the waves in the vessels at once (I2 second order, I1 first) and
 the 3D side later, with a much smaller constant: I1's first-order wave error
 reaches the 3D flux at the finest level, I2's not yet. In the plot the
 implicit 4 and implicit 2 curves coincide on the 3D flux and the pressures.
+
+**Against the closed form** (`./highOrder.py run 6 --linear`, 20 cases,
+about an hour; `highOrder_linear.md`, `plots/highOrder3D1D_linear.png`).
+With the vessels on the linearised 1D equations (`linearised true`) the
+closed form is the exact solution at full amplitude, so the same study is
+measured against it, one level further (0.15625 mm, 0.125 ms), the profiles
+against the closed form's cell averages (five-point Gauss quadrature; against
+point values the comparison itself is second order). The closed form takes
+`tau` with the 32-sided patch area and includes the reflected pulse's return
+to the flow inlet, where it reflects with +1 in pressure. Orders between
+successive levels:
+
+| coupling | 3D flux | pipe-end pressures | waves in the vessels | error at 0.15625 mm |
+| --- | --- | --- | --- | --- |
+| implicit 4 | 3.93, 3.97, 3.99, 4.00 | 3.92, 3.98, 4.00, 4.00 | 3.95, 3.99, 4.00, 3.98 | 2.4e-8, 1.8e-8, 2.8e-8 |
+| explicit 4 | 3.88, 3.97, 3.99, 3.99 | 3.89, 3.99, 4.00, 4.00 | 3.96, 4.00, 4.00, 4.00 | 7.1e-8, 6.9e-8, 4.7e-8 |
+| implicit 2 | as implicit 4 | as implicit 4 | 1.61, 1.89, 1.97, 1.99 | 2.4e-8, 1.8e-8, 1.5e-5 |
+| implicit 1 | as implicit 4 | as implicit 4 | 0.98, 1.00, 1.00, 1.00 | 2.4e-8, 1.8e-8, 3.9e-3 |
+
+Fourth order with no floor, and the 3D side of I1 and I2 at the
+fourth-order error at every level: in the linear problem the waves a
+low-order coupling sends into the vessels never come back to the pipe, and
+the leak of I1's wave error into the 3D flux seen above is the nonlinear
+interaction of that erroneous reflected wave with the incident one while
+they overlap at the pipe, second order in the amplitude.

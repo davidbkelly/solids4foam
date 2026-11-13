@@ -92,10 +92,14 @@ Foam::scalar Foam::inertance::endPressure
     }
 
     const vessel1D& v = vessel(i);
+    const tubeLaw1D& law = v.endLaw(end(i));
     const scalar A = v.boundaryArea(end(i));
-    const scalar P = v.endLaw(end(i)).pressure(A);
+    const scalar P = law.pressure(A);
 
-    return total_ ? P + 0.5*v.rho()*sqr(Q/A) : P;
+    return
+        total_
+      ? P + dynamicPressure(law, v.rho(), Q/law.velocityArea(A))
+      : P;
 }
 
 

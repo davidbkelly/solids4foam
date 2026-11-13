@@ -38,7 +38,10 @@ Description
         W = U + s I(A)
 
     so on the characteristic U = W - s I(A), and the flow into the node,
-    Qn = s A U, has dQn/dA = s (U - s c).
+    Qn = s A U, has dQn/dA = s (U - s c). For a vessel solved with the
+    linearised equations (its tube law is a linearisedTubeLaw) the velocity
+    is U = Q/Aref and dQn/dA = -c: the helpers flow(), dFlowdA() and
+    dynamicPressure() hold for both.
 
     A node may carry ODE states (y), advanced with the same Runge-Kutta
     stages as the vessels from the derivatives it computes in derivatives().
@@ -121,6 +124,33 @@ protected:
         //- Outgoing invariant of connection i, from the reconstructed face
         //  state; also returns that face area as a starting guess
         scalar outgoingInvariant(const label i, scalar& Aface) const;
+
+        //- Flow along the vessel for velocity U at area A: A U, or Aref U
+        //  for a linearised law
+        static scalar flow
+        (
+            const tubeLaw1D& law,
+            const scalar A,
+            const scalar U
+        );
+
+        //- d(flow)/dA along the outgoing characteristic of an end of sign
+        //  s: U - s c, or -s c for a linearised law
+        static scalar dFlowdA
+        (
+            const tubeLaw1D& law,
+            const scalar A,
+            const scalar U,
+            const scalar s
+        );
+
+        //- rho U^2/2, or 0 for a linearised law
+        static scalar dynamicPressure
+        (
+            const tubeLaw1D& law,
+            const scalar rho,
+            const scalar U
+        );
 
         //- Set the boundary state of connection i for a prescribed flow Qn
         //  into the node: A solves s A (W - s I(A)) = Qn by Newton

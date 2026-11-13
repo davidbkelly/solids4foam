@@ -881,7 +881,7 @@ void Foam::network1D::probeValues
     scalar Ad;
     v.sample(probeX_[i], P, Q, A, Ad);
 
-    U = Q/A;
+    U = Q/v.tubeLaw(0).velocityArea(A);
 
     const scalar rpi = 1/constant::mathematical::pi;
     dr = Foam::sqrt(A*rpi) - Foam::sqrt(Ad*rpi);
@@ -931,7 +931,7 @@ void Foam::network1D::writeProfile(const label vi, Ostream& os) const
     {
         const tubeLaw1D& law = v.tubeLaw(i);
         os  << x << ' ' << A << ' ' << Q << ' ' << law.pressure(A) << ' '
-            << Q/A << ' ' << law.referenceArea() << nl;
+            << Q/law.velocityArea(A) << ' ' << law.referenceArea() << nl;
     };
 
     row

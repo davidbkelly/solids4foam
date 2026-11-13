@@ -60,6 +60,9 @@ Description
         tubeLaw             sqrtElastic;
         initialPressure     0;          // uniform; default 0
         initialFlowRate     0;          // uniform; default 0
+        linearised          false;      // true: the equations linearised
+                                        // about the initial state (uniform
+                                        // vessels; see linearisedTubeLaw)
 
 Author
     David Kelly, UCD.

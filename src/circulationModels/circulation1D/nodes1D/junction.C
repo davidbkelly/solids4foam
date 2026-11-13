@@ -70,10 +70,13 @@ void Foam::junction::setBoundary(const scalar t)
             const scalar c = law.waveSpeed(A[i]);
 
             U[i] = W[i] - s[i]*law.invariant(A[i]);
-            H[i] = law.pressure(A[i]) + 0.5*rho*sqr(U[i]);
-            dH[i] = law.dPdA(A[i]) - rho*U[i]*s[i]*c/A[i];
-            Qn[i] = s[i]*A[i]*U[i];
-            dQn[i] = s[i]*(U[i] - s[i]*c);
+            H[i] = law.pressure(A[i]) + dynamicPressure(law, rho, U[i]);
+            // dH/dA = dP/dA + rho U dU/dA, dU/dA = -s c/A (0 if linearised)
+            dH[i] =
+                law.dPdA(A[i])
+              - (law.nonlinear() ? rho*U[i]*s[i]*c/A[i] : 0);
+            Qn[i] = s[i]*flow(law, A[i], U[i]);
+            dQn[i] = s[i]*dFlowdA(law, A[i], U[i], s[i]);
         }
     };
 
@@ -142,7 +145,8 @@ void Foam::junction::setBoundary(const scalar t)
 
     forAll(ends_, i)
     {
-        vessel(i).setBoundaryState(end(i), A[i], A[i]*U[i]);
+        const tubeLaw1D& law = vessel(i).endLaw(end(i));
+        vessel(i).setBoundaryState(end(i), A[i], flow(law, A[i], U[i]));
     }
 }
 

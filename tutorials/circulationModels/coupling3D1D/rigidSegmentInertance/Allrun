@@ -1,7 +1,10 @@
 #!/bin/bash
 # Run the rigid segment as an inertance (1D, no mesh), then compare it with the
 # linear closed form: the base case and the refinement order/n<N> at fixed
-# CFL, both with the inflow of Boileau Eq. 14 x 1e-3 (linear).
+# CFL, both with the inflow of Boileau Eq. 14 x 1e-3 (linear), and the
+# refinement order/linear/n<N> of the linearised equations at full amplitude
+# with the fourth-order scheme (kExact 3, RK4), of which the closed form is the
+# exact solution.
 #   ./Allrun
 #   PYTHON=/path/to/python ./Allrun     a Python with numpy and scipy (and matplotlib)
 cd "$(dirname "$0")" || exit 1
@@ -25,6 +28,27 @@ for n in 200 400 800 1600 3200 6400; do
     props=$dir/constant/circulation1DProperties
     { foamDictionary -entry vesselDefaults/nCells -set "$n" "$props" \
    && foamDictionary -entry nodes/inlet/flowRate/scale -set 1e-3 "$props" \
+   && foamDictionary -entry probes -remove "$props" \
+   && foamDictionary -entry deltaT -set 0.6 "$dir"/system/controlDict; \
+    } > /dev/null 2>&1 || { echo "Could not set up $dir"; exit 1; }
+
+    echo "Running $dir"
+    (cd "$dir" && circulation1DFoam > log.circulation1DFoam 2>&1) \
+        || { echo "$dir failed:"; tail -15 "$dir"/log.circulation1DFoam; exit 1; }
+done
+
+# The linearised equations at full amplitude, fourth order in space and time
+for n in 200 400 800 1600 3200 6400; do
+    dir=order/linear/n$n
+    mkdir -p "$dir"
+    cp -r constant system "$dir"/
+    props=$dir/constant/circulation1DProperties
+    { foamDictionary -entry vesselDefaults/nCells -set "$n" "$props" \
+   && foamDictionary -entry vesselDefaults/linearised -set true "$props" \
+   && foamDictionary -entry nodes/inlet/flowRate/scale -set 1 "$props" \
+   && foamDictionary -entry numerics/reconstruction -set kExact "$props" \
+   && foamDictionary -entry numerics/polynomialOrder -set 3 "$props" \
+   && foamDictionary -entry numerics/timeScheme -set RK4 "$props" \
    && foamDictionary -entry probes -remove "$props" \
    && foamDictionary -entry deltaT -set 0.6 "$dir"/system/controlDict; \
     } > /dev/null 2>&1 || { echo "Could not set up $dir"; exit 1; }

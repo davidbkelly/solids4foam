@@ -34,6 +34,24 @@ When `beta` and `Ad` vary along the vessel the momentum equation is
 state at rest is a uniform pressure with no flow (`A = Ad` only if `Pd + Pext`
 is uniform).
 
+**Linearised equations.** A uniform vessel with `linearised true` solves the
+equations linearised about its initial state (`Aref`, at rest):
+
+```text
+dA/dt + dQ/dx = 0
+dQ/dt + c0^2 dA/dx = -KR Q/Aref,   P = Pref + (rho c0^2/Aref) (A - Aref)
+```
+
+The tube law becomes its tangent at `Aref` (`linearisedTubeLaw`, wave speed
+`c0` constant), the convective term and the dynamic pressure at the nodes are
+dropped, and the Riemann invariants are the linear ones,
+`W = Q/Aref +- c0 (A - Aref)/Aref`; the nodes impose the same conditions on
+them. With it, the linear closed forms of the 3D-1D benchmarks (the rigid
+segment, the Womersley segment, the delay equation of the open-ended pipe)
+are the exact solutions of the 1D equations at any amplitude, so convergence
+can be measured against them without the floor of the nonlinear terms or the
+round-off of a tiny pulse.
+
 ## Numerics
 
 Finite volumes on a uniform mesh per vessel: MUSCL reconstruction of `(A, Q)`
@@ -110,6 +128,7 @@ vessels
         externalPressure    0;          // default 0
         initialPressure     0;          // uniform; default 0
         initialFlowRate     0;          // uniform; default 0
+        linearised          false;      // true: the linearised equations
     }
 }
 
@@ -128,7 +147,7 @@ probes  { mid { vessel carotid; x midpoint; } }     // x: metres, in, midpoint, 
 
 | Type | Condition |
 |---|---|
-| `flowInlet` | Flow `flowRate` (a `Function1` of time, m3/s, positive into the vessel), by Newton on the outgoing characteristic |
+| `flowInlet` | Flow `flowRate` (a `Function1` of time, m3/s, positive into the vessel), by Newton on the outgoing characteristic; reflects an incoming wave with Γ = +1 in pressure (-1 in flow: infinite impedance) |
 | `pressureInlet` | Pressure `pressure` (a `Function1` of time, Pa, the tube law's pressure): the area is `A(P)` and the velocity follows from the outgoing characteristic; reflects an incoming wave with Γ = -1 |
 | `absorbing` | Non-reflecting: the incoming Riemann invariant keeps its initial value |
 | `waveInlet` | Non-reflecting end that sends in a prescribed wave: the incoming invariant is its initial value plus `-2 s p(t)/(rho c0)`, `pressure` a `Function1` of time (Pa): a semi-infinite line with an incident wave |
@@ -187,7 +206,7 @@ Two checks of milestone M1:
 
 | Directory | Contents |
 |---|---|
-| `tubeLaws` | `tubeLaw1D` (run-time selectable), `sqrtElastic` |
+| `tubeLaws` | `tubeLaw1D` (run-time selectable), `sqrtElastic`, `linearisedTubeLaw` (the tangent of a law at the initial state, for `linearised true`) |
 | `numerics` | `slopeLimiter1D`, `riemannFlux1D` (run-time selectable), `rungeKutta1D` (SSPRK2, SSPRK3, RK4), `kExactReconstruction1D` |
 | `vessel1D` | `vessel1D`: fields, the wall of each cell, reconstruction, fluxes (Riemann or coupled), sources, sampling |
 | `nodes1D` | `node1D` (run-time selectable) and the nodes above |

@@ -9,6 +9,7 @@ nodes, `circulation1DCoupling`, the tutorials `rigidSegmentInertance` and
 ```bash
 python3 benchmarks3D1D.py rigid    # closed form vs ODE, energy, |Gamma|
 python3 benchmarks3D1D.py mms      # symbolic check of the 2016 MMS
+python3 benchmarks3D1D.py csv      # the rigid segment's reference as CSV
 ```
 
 The literature has no physical analytical benchmark for 3D-1D coupling:
@@ -54,6 +55,28 @@ and `|Gamma|^2 + |T|^2 = 1`: incident energy = reflected + transmitted.
 
 Everything depends on `w l/c` only: a rigid 3D region is acceptable when
 `w l / c << 1`.
+
+### Specification (for another code)
+
+Everything SI. `benchmarks3D1D.py csv` writes the reference below from the
+class `RigidSegment` of that script.
+
+| | |
+|---|---|
+| 1D vessels | two straight vessels, proximal `L1` = 1 m and distal `L2` = 1 m, radius `R` = 10 mm at the diastolic pressure `Pd` = 0, wall thickness `h` = 1.5 mm, Young's modulus `E` = 400 kPa, external pressure 0, inviscid (`mu` = 0), blood density `rho` = 1050 kg/m3 (the single-pulse vessel of Boileau et al. 2015, Table II) |
+| 1D model | the linearised 1D equations about the state at rest: `dA/dt + dQ/dx = 0`, `dQ/dt + c0^2 dA/dx = 0`, `P = (rho c0^2/A0) (A - A0)`, with `A0 = pi R^2` and `c0` the wave speed of the sqrtElastic law at `A0`: `c0^2 = 2 E h/(3 rho R)` = (6.1721 m/s)^2; `Zc = rho c0/A0` = 2.0629e7 Pa s/m3. A code with only the nonlinear equations should run the inflow scaled by 1e-3 (then the nonlinear error is 2e-5 of the peak at most) |
+| 3D pipe | a straight rigid pipe of length `l` = 80 mm and radius 10 mm between the proximal vessel's downstream end and the distal vessel's upstream end; incompressible inviscid flow (or slip walls), so the exact 3D solution is plug flow; `rho` as above |
+| pipe cross-section `A3D` | the exact solution's inertance is `L = rho l/A3D` with `A3D` the area of the 3D mesh's inlet patch, which the 3D solution has exactly. The tutorial's O-grid has a 32-sided wall polygon, `A3D = 16 R^2 sin(pi/16)` = 0.99359 pi R^2 = 3.121445e-4 m2, `tau = L/(2 Zc)` = 6.5226 ms. A mesh with another patch area uses its own `A3D` (`RigidSegment(A3D=...)`); a 1D reduction of the pipe (an inertance element) uses `pi R^2` (`tau` = 6.4807 ms) |
+| inflow | prescribed flow at the proximal vessel's upstream end: `Q(t) = 1e-6 exp(-1e4 (t - 0.05)^2)` m3/s (a Gaussian of standard deviation `sigma = 1/sqrt(2e4)` = 7.071 ms peaking at `t` = 0.05 s; the incident pressure peak is `Zc` x 1e-6 = 20.629 Pa). The inlet reflects returning waves with +1 in pressure |
+| outlet | non-reflecting end of the distal vessel |
+| initial state | everything at rest, `P` = 0, `Q` = 0, `A = A0` |
+| interface | continuity of flow and of (static) pressure at both pipe ends |
+| window | 0 to 0.35 s: the incident peak reaches the pipe at `t_arrive = 0.05 + L1/c0` = 0.212 s; the reflected pulse has returned to the inlet and re-entered the first centimetres of the proximal vessel by 0.35 s (in the reference) |
+| quantities of interest | (i) the flow through the pipe `Q(t)` and the pressures at its inlet `P1(t)` and outlet `P2(t)`, at the coupling times; (ii) the profiles of `P`, `Q` and `A` along both vessels at `t` = 0.35 s |
+| reference | `Q = p_t/Zc`, `P1 = 2 p_inc - p_t`, `P2 = p_t` with `p_inc(T) = Zc 1e-6 exp(-T^2/(2 sigma^2))`, `T = t - t_arrive`, and `p_t` the closed form above; along the vessels the incident, reflected (`p_inc - p_t`, backward) and re-reflected (at the inlet, forward) waves, `P = f + g`, `Q = (f - g)/Zc`, `A = A0 (1 + P/(rho c0^2))`. `rigidSegment_pipe.csv` (every 0.1 ms) and `rigidSegment_{proximal,distal}_t0.35.csv` (every 0.5 mm) |
+| error norm | relative to the incident peak (`Zc` x 1e-6 for `P`, 1e-6 for `Q`): the maximum over the window for (i), the maximum over both vessels for (ii). A finite-volume code compares its cell averages with the cell averages of the reference (`RigidSegment.profile_avg`, five-point Gauss quadrature per cell): against point values the comparison is second order, `(dx/(c0 sigma))^2/24`, whatever the scheme |
+| refinement | `dx` and `dt` halved together from 2.5 mm and 2 ms (the 1D cells; the 3D axial cells may stay at 5 mm, plug flow being exact on any mesh) |
+| physiological amplitude | the same with the inflow x 1 on the nonlinear 1D equations: no closed form; reference values from the finest runs of `rigidSegment3D/highOrder.py` (implicit order 4, 0.15625 mm, 0.125 ms, kExact 3 + RK4 vessels, BDF 4 pipe), labelled numerical, see the results below |
 
 **What it tests.** With slip walls, finite volumes represent uniform
 velocity and linear pressure exactly, so the 3D discretisation error is
@@ -148,6 +171,30 @@ that with E4). Every quantity converges at `min(p, q)` in the end: a
 low-order coupling spoils the waves in the vessels at once, and the 3D side
 later, with a much smaller constant (I1's first-order wave error reaches the
 3D flux at the finest level; I2's not yet).
+
+Against the closed form itself, with the vessels on the linearised 1D
+equations (`linearised true`, see the circulation1D README), of which it
+is the exact solution at any amplitude (`highOrder.py --linear`, one level
+further, the profiles against the closed form's cell averages):
+
+| coupling | 3D flux | pipe-end pressures | waves in the vessels | error at 0.15625 mm, 0.125 ms |
+|---|---|---|---|---|
+| implicit 4 | 3.93, 3.97, 3.99, 4.00 | 3.92, 3.98, 4.00, 4.00 | 3.95, 3.99, 4.00, 3.98 | 2.4e-8, 1.8e-8, 2.8e-8 |
+| explicit 4 | 3.88, 3.97, 3.99, 3.99 | 3.89, 3.99, 4.00, 4.00 | 3.96, 4.00, 4.00, 4.00 | 7.1e-8, 6.9e-8, 4.7e-8 |
+| implicit 2 | as I4 | as I4 | 1.61, 1.89, 1.97, 1.99 | 1.5e-5 (waves) |
+| implicit 1 | as I4 | as I4 | 0.98, 1.00, 1.00, 1.00 | 3.9e-3 (waves) |
+
+Fourth order to 2e-8 of the peak with no floor; and the 1D-only reduction
+(`rigidSegmentInertance`, the pipe as an `inertance` node, kExact 3 + RK4)
+at 3.95-4.01 down to 1.4e-9 (L1) over 200 to 6400 cells per vessel. In the
+linear problem the 3D side of I1 and I2 stays at the fourth-order error at
+every level: the waves a low-order coupling sends into the vessels never
+return to the pipe, and the leak seen in the self-convergence study is the
+nonlinear interaction of I1's erroneous reflected wave with the incident
+one while they overlap at the pipe. Two rules for anyone comparing with the
+closed form: cell averages against cell averages (against point values the
+comparison is second order, `(dx/(c0 sigma))^2/24`), and `tau` with the
+mesh's own patch area.
 
 **Ladder.**
 1. Linear, inviscid, slip walls: the closed form above.

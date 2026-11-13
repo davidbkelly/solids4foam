@@ -46,25 +46,8 @@ Foam::flowInlet::flowInlet
 
 void Foam::flowInlet::setBoundary(const scalar t)
 {
-    const scalar s = sign(0);
-    const tubeLaw1D& law = vessel(0).endLaw(end(0));
-
-    scalar Af;
-    const scalar W = outgoingInvariant(0, Af);
-    const scalar Qv = -s*flowRate(t);
-
-    const scalar A = solveArea
-    (
-        [&](const scalar a, scalar& dRdA)
-        {
-            const scalar U = W - s*law.invariant(a);
-            dRdA = U - s*law.waveSpeed(a);
-            return a*U - Qv;
-        },
-        Af
-    );
-
-    vessel(0).setBoundaryState(end(0), A, Qv);
+    // The flow into the vessel is the flow out of the node
+    setFlowBoundary(0, -flowRate(t));
 }
 
 // ************************************************************************* //

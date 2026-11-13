@@ -117,8 +117,8 @@ void Foam::lumped0D::setBoundary(const scalar t)
         [&](const scalar a, scalar& dRdA)
         {
             const scalar U = W - s*law.invariant(a);
-            const scalar Qn = s*a*U;
-            const scalar dQn = s*(U - s*law.waveSpeed(a));
+            const scalar Qn = s*flow(law, a, U);
+            const scalar dQn = s*dFlowdA(law, a, U, s);
 
             const scalar Qp = portFlow(Qn);
             const scalar h = 1e-7*(mag(Qp) + Qscale);
@@ -132,7 +132,7 @@ void Foam::lumped0D::setBoundary(const scalar t)
         Af
     );
 
-    const scalar Q = A*(W - s*law.invariant(A));
+    const scalar Q = flow(law, A, W - s*law.invariant(A));
 
     // Leave the circuit forced with the converged flow
     portPressure(t, portFlow(s*Q));
