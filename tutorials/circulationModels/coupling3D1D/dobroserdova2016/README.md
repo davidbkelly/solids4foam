@@ -79,10 +79,14 @@ See `results.md` and `plots/dobroserdova_sine.png`, `plots/dobroserdova_step.png
   jump the soft coupling passes instantly through R1). The RMS errors are
   listed in `results.md`; the max norms are set by the smeared jump.
 - **3D runs.** The pimpleFoam pipe with the hard coupling reproduces the
-  exact solution: peak flow 1.596 against 1.594 (sine) and 2.263 against
-  2.267 (step). Its RMS error in the flow, 3.8e-2 of the inflow for the sine
-  at dt = 1 ms, is the phase error of the BDF2 time scheme on the undamped
-  17.5 Hz resonance over 21 of its periods (57 steps per period), not a
+  exact solution: peak flow 1.596 against 1.596 (sine) and 2.263 against
+  2.265 (step). The exact solution of the 3D run takes the pipe's inductance
+  with the area of its 32-sided inlet patch (`A3D` = 0.9936 pi R^2, as the
+  rigid-segment benchmark does), which the 3D solution has exactly; with
+  pi R^2 instead, the 0.64 % error in L shifts the resonance and the RMS
+  flow error over 21 of its periods reads 3.8e-2 instead of 7.7e-3. That
+  7.7e-3 of the inflow (sine, dt = 1 ms) is the phase error of the BDF2 time
+  scheme on the undamped 17.5 Hz resonance (57 steps per period), not a
   coupling error: the 1D run with the lumped pipe, whose CFL step is 50 times
   smaller, is at 3.3e-4. The 3D rigid pipe is the inductor, and the coupling
   adds nothing of its own.
@@ -103,3 +107,25 @@ different problem, and the statement of what the soft coupling's buffer does
 (it damps the vessel's resonance by terminating it with its characteristic
 impedance at high frequency) rather than that it "reduces spurious
 reflections".
+
+## Order in time
+
+`../orderStudy.py --case dobroserdova2016` repeats the 3D run of the hard
+coupling (sine inflow, c0 = 3.5 m/s) from rest over the first period at dt
+= 2, 1, 0.5, 0.25 and 0.125 ms, with the fluid ddt scheme and the implicit
+coupling order both at q = 1 (`Euler`), 2 (`backward`), 3 (`BDF 3`) and 4
+(`BDF 4`), the 1D vessel at CFL 0.1 and the PIMPLE loop to a pressure
+residual of 1e-10. Observed orders by self-convergence (`orders.md`,
+`plots/orders.png`), the RMS over the period of the port flow and pressure:
+
+| dt triple [ms] | Euler | backward | BDF 3 | BDF 4 |
+|---|---|---|---|---|
+| 2 / 1 / 0.5 | 0.41 / 0.41 | 1.78 / 1.71 | 2.87 / 2.45 | 3.33 / 2.82 |
+| 1 / 0.5 / 0.25 | 0.87 / 0.85 | 1.99 / 1.92 | 2.91 / 2.73 | 3.47 / 3.43 |
+| 0.5 / 0.25 / 0.125 | 0.94 / 0.92 | 2.00 / 1.97 | 2.97 / 2.94 | 3.82 / 3.92 |
+
+(Q / P.) Every family reaches its nominal order; the coarse triples are
+pre-asymptotic because the first period from rest is the vessel's resonant
+transient (tau = 2.5 ms against dt = 2 ms). The finest Euler, backward and
+BDF 3 runs differ from the finest BDF 4 run by 1.2e-2, 3.4e-5 and 4.4e-7 of
+the flow.

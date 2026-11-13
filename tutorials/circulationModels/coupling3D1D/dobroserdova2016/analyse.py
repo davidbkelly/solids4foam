@@ -36,7 +36,7 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from makeCases import A, C0S, INFLOWS, L0, L1D, LIND, RHO  # noqa: E402
+from makeCases import A, A3D, C0S, INFLOWS, L0, L1D, L3D, LIND, RHO  # noqa: E402
 
 RUNS = HERE/"runs"
 
@@ -49,14 +49,16 @@ def qin(t, inflow):
     return np.where((t >= 0) & (t <= 0.1), 1e-7, 0.0)
 
 
-def exact(inflow, c0, config, t):
+def exact(inflow, c0, config, t, pipeArea=None, n2=4000):
     """Q and P at the interface from the delay equations, by Heun's method on
-    a grid that divides the round-trip time 2 td exactly"""
+    a grid of n2 steps per round trip 2 td. pipeArea: the area of the rigid
+    pipe (its inductance is RHO L3D/pipeArea): the vessel's for the lumped
+    pipe, the 3D patch's (A3D, a 32-gon) for the pimpleFoam pipe"""
+    Lind = RHO*L3D/pipeArea if pipeArea else LIND
     Zc = RHO*c0/A
     Cb = L0*A/(RHO*c0**2)
     R1 = R2 = 0.5*Zc
     td = L1D/c0
-    n2 = 4000                              # steps per round trip
     dt = 2*td/n2
     N = int(math.ceil(t[-1]/dt)) + 2
     tt = np.arange(N + 1)*dt
@@ -71,9 +73,9 @@ def exact(inflow, c0, config, t):
 
     def rates(fk, Qk, Pck, Q2k):
         if config == "hard":
-            return (2*fk - Zc*Qk)/LIND, 0.0, 0.0
+            return (2*fk - Zc*Qk)/Lind, 0.0, 0.0
         Q1 = (2*fk - Pck)/(Zc + R1)
-        return 0.0, (Q1 - Q2k)/Cb, (Pck - R2*Q2k)/LIND
+        return 0.0, (Q1 - Q2k)/Cb, (Pck - R2*Q2k)/Lind
 
     for k in range(N):
         fk, fk1 = f_at(k), f_at(k + 1)
@@ -146,7 +148,7 @@ def main():
             d = load_3d(f"{inflow}_{c0name}_hard3D")
             if d is not None:
                 t, Q, P = d
-                Qe, Pe = exact(inflow, c0, "hard", t)
+                Qe, Pe = exact(inflow, c0, "hard", t, pipeArea=A3D)
                 rows.append(("hard (1D + pimpleFoam pipe)", Q.max()/1e-7,
                              Qe.max()/1e-7, err(Q, Qe, 1e-7),
                              err(P, Pe, Zc*1e-7), t, Q, P, Qe, Pe))
