@@ -24,9 +24,10 @@ Description
 
         A (W - s I(A)) = Qv,        Qv = -s Qin(t)
 
-    by Newton, with Qin positive into the vessel. Qin is a Function1 of time
-    [m3/s], so a constant, a table (periodic with "outOfBounds repeat"), a
-    CSV file or an expression:
+    by Newton, with Qin positive into the vessel. A wave reaching the end
+    reflects with Gamma = +1 in pressure (-1 in flow): the end has infinite
+    impedance. Qin is a Function1 of time [m3/s], so a constant, a table
+    (periodic with "outOfBounds repeat"), a CSV file or an expression:
 
         inlet
         {
