@@ -132,12 +132,37 @@ def c0_of(case):
     return math.nan
 
 
+def executable(case):
+    """The solids4Foam executable a run used (its log's Exec line)"""
+    log = RUNS/case/"log.solids4Foam"
+    if log.is_file():
+        for line in log.read_text().splitlines()[:40]:
+            if line.startswith("Exec"):
+                return line.split(":", 1)[1].strip()
+    return ""
+
+
+def ref_for(c):
+    """The full tube a coupled run is compared with: the closed one for a
+    _closed run; otherwise the full tube made with the same solids4Foam
+    executable (full3D_lib2 for runs of the second scratch build, which
+    changes the FSI results by a few percent), else full3D"""
+    if c.endswith("_closed"):
+        return "full3D_closed"
+    # the runs made with the checkout's own build carry _lib2 or _spring
+    # (the installed library has no solidSpringDashpot)
+    if any(t in c for t in ("_lib2", "_spring")) \
+            and finished("full3D_lib2", "log.solids4Foam"):
+        return "full3D_lib2"
+    return "full3D"
+
+
 def main():
     coupled = sorted(p.name for p in RUNS.glob("coupled*") if p.is_dir())
     lines = ["# Formaggia et al. (2007), section 5: the pulse tube continued "
              "by a 1D vessel", ""]
     data = {}
-    for ref in ("full3D", "full3D_closed"):
+    for ref in ("full3D", "full3D_closed", "full3D_lib2"):
         if (RUNS/ref/"postProcessing"/"fluid").is_dir():
             if not finished(ref, "log.solids4Foam"):
                 lines += [f"**{ref} has not finished: partial data.**", ""]
@@ -162,8 +187,7 @@ def main():
         for c in coupled:
             if c not in data:
                 continue
-            # A closed-end run is compared with the closed full tube
-            ref = "full3D_closed" if c.endswith("_closed") else "full3D"
+            ref = ref_for(c)
             if ref not in data:
                 continue
             lines += [f"## {c}: 1D c0 = {c0_of(c):.3g} m/s (against {ref})", "",
@@ -215,11 +239,16 @@ def figure(data, coupled):
     (HERE/"plots").mkdir(exist_ok=True)
     style = {"full3D": ("k", "-", "full 3D FSI (15 cm)"),
              "only1D": ("#0072B2", ":", "1D alone (15 cm)")}
-    cols = ["#D55E00", "#009E73", "#CC79A7", "#E69F00"]
+    style["full3D_closed"] = ("k", "--", "full FSI tube, closed far end")
+    style["full3D_lib2"] = ("gray", "-", "full FSI tube (checkout build)")
+    cols = ["#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9", "#F0E442"]
     for i, c in enumerate(coupled):
+        tags = [t for t, w in (("free", "free wall end"), ("spring", "spring wall end"),
+                               ("closed", "closed far end"), ("lib2", "checkout build"))
+                if f"_{t}" in c]
         style[c] = (cols[i % len(cols)], "--",
                     f"3D (5 cm) + 1D (10 cm), c0 = {c0_of(c):.3g} m/s"
-                    + (", free wall end" if c.endswith("_free") else ""))
+                    + "".join(", " + w for w in tags))
     planes = [z for z in PLANES_CM if any(z in d for d in data.values())]
     for col, ylabel, scale in (("P", "mean pressure [Pa]", 1),
                                ("Q", "flow [ml/s]", 1e6)):
@@ -230,7 +259,7 @@ def figure(data, coupled):
                                 sharex=True, sharey=True, squeeze=False)
         for ax, zcm in zip(axs.flat, planes):
             for case, secs in data.items():
-                if zcm in secs:
+                if zcm in secs and case in style:
                     t, P, Q = secs[zcm]
                     c, ls, label = style[case]
                     ax.plot(1e3*t, scale*(P if col == "P" else Q), color=c,
@@ -252,6 +281,8 @@ def figure(data, coupled):
     if "full3D" in data and coupled:
         fig, ax = plt.subplots(figsize=(6, 3.2))
         for case in ["full3D"] + [c for c in coupled if c in data]:
+            if case not in style:
+                continue
             t, D = displacement(case)
             c, ls, label = style[case]
             ax.plot(1e3*t, 1e6*D, color=c, ls=ls, lw=1.2, label=label)

@@ -115,6 +115,40 @@ the FSI solver, which is 2; orders 3 and 4 of the coupling itself are
 established on the pimpleFoam cases (`rigidSegment3D`, `dobroserdova2016`,
 `womersleySegment`, `thoracicAorta37`, see `../orderStudy.py`).
 
+## The wall's end at the interface: clamped, free, elastic support
+
+`makeCases.py --c0 4.92 --springEnd` puts the cut end of the wall on an
+elastic support (`solidSpringDashpot`): free axially and, in the plane of
+the cut, the stiffness the continuing wall presents to its edge, taken as
+that of a semi-infinite thin cylindrical shell displaced radially with its
+edge moment free (Timoshenko), `Q = 2 D beta^3 u` per unit circumference
+with `D = E h^3/(12 (1 - nu^2))` and `beta^4 = 3 (1 - nu^2)/(R^2 h^2)`,
+divided by h: 1.04e7 Pa/m here (`shell_edge_stiffness()`). The three end
+conditions against the full tube, all four runs made with the same build
+of solids4foam (the installed library has no `solidSpringDashpot`; see
+`results.md`, the `_lib2` runs and `full3D_lib2`):
+
+| z [cm] | full tube peak [Pa] | clamped | free | spring | RMS(P - full) / pulse: clamped / free / spring |
+|---|---|---|---|---|---|
+| 2.5 | 1271 | 1303 | 1233 | 1233 | 3.0e-2 / 4.4e-2 / 5.1e-2 |
+| 3.75 | 1132 | 1169 | 1108 | 1111 | 4.6e-2 / 2.5e-2 / 2.5e-2 |
+| 5 (interface) | 1077 | 1104 | 1093 | 1098 | 4.4e-2 / 1.8e-2 / 2.2e-2 |
+| 6.25 | 1045 | 1096 | 1085 | 1089 | 6.9e-2 / 3.6e-2 / 4.6e-2 |
+
+(Wall displacement at 2.5 cm: RMS difference 3.6 / 3.2 / 4.1 um.) The
+shell's edge stiffness is about a sixth of the ring's own hoop stiffness
+`E h/R^2`, so the elastic support behaves nearly as the free end: the
+overshoot at 3.75 cm and the interface is gone, the 3D part gains the
+free end's oscillation. The full tube's peaks lie between the clamped and
+the free/spring values at every section, so the condition that matches it
+is stiffer than the continuing shell's static edge stiffness: the cut ring
+in the full tube is held by the wall's inertia and the pressure acting on
+the continuation, not by its static edge stiffness alone. The condition
+to try next is Formaggia's continuity of area itself: the ring's radial
+displacement prescribed from the 1D vessel's area at the interface (a
+coupled Dirichlet condition on the solid), which needs the coupler to
+drive a solid boundary and is not built.
+
 ## Results
 
 See `results.md` and `plots/sections_P.png`, `sections_Q.png`,

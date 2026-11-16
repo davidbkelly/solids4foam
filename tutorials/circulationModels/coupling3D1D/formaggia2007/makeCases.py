@@ -87,7 +87,7 @@ def zone_name(zcm):
     return "z" + f"{zcm:g}".replace(".", "p")
 
 
-def control_dict(coupled, planes, dt):
+def control_dict(coupled, planes, dt, end=END_TIME):
     libs ='libs            ("libcirculation1DCoupling.so");\n\n' if coupled else ""
     fos = ""
     for zcm in planes:
@@ -112,7 +112,7 @@ def control_dict(coupled, planes, dt):
 startFrom       startTime;
 startTime       0;
 stopAt          endTime;
-endTime         {END_TIME};
+endTime         {end};
 deltaT          {dt:g};
 writeControl    runTime;
 writeInterval   1e-3;
@@ -338,7 +338,7 @@ def shell_edge_stiffness():
 
 
 def make_3d(name, length, coupled, c0, dt, force, free_end=False,
-            spring_end=False, closed_end=False):
+            spring_end=False, closed_end=False, end=END_TIME):
     case = RUNS/name
     if case.exists() and finished(case) and not force:
         print(f"{name}: finished, kept")
@@ -352,7 +352,7 @@ def make_3d(name, length, coupled, c0, dt, force, free_end=False,
              [(r"(\(\s*[-\d.e]+\s+[-\d.e]+\s+)0\.05\)", rf"\g<1>{length:g})"),
               (r" 80\)", f" {n})")])
     planes = [z for z in PLANES_CM if z*1e-2 < length]
-    (case/"system"/"controlDict").write_text(control_dict(coupled, planes, dt))
+    (case/"system"/"controlDict").write_text(control_dict(coupled, planes, dt, end))
     (case/"system"/"fluid"/"topoSetDict").write_text(topo_set_dict(planes))
     if coupled:
         edit(case/"0"/"fluid"/"p",
@@ -436,13 +436,15 @@ def main():
                     help="the far end closed (full3D_closed and coupled_..._closed): the pulse returns from the 1D side")
     ap.add_argument("--force", action="store_true",
                     help="rewrite finished runs too")
+    ap.add_argument("--endTime", type=float, default=END_TIME,
+                    help=f"end time [s] (default {END_TIME:g}; the closed end needs 0.07 for the return)")
     args = ap.parse_args()
     c0 = args.c0 if args.c0 else c0_plane_strain()
     print(f"plane-strain static match: c0 = {c0_plane_strain():.4g} m/s; "
           f"using {c0:.4g} m/s, E1D = {youngs1D(c0):.4g} Pa")
     RUNS.mkdir(exist_ok=True)
     make_3d("full3D" + ("_closed" if args.closedEnd else ""), LFULL, False,
-            c0, args.dt, args.force, closed_end=args.closedEnd)
+            c0, args.dt, args.force, closed_end=args.closedEnd, end=args.endTime)
     if args.c0 or args.freeEnd or args.springEnd or args.closedEnd:
         # Another coupled run beside the static-match one, named by its c0
         # and end condition
@@ -451,7 +453,7 @@ def main():
                 + ("_spring" if args.springEnd else "")
                 + ("_closed" if args.closedEnd else ""))
         make_3d(name, L3D, True, c0, args.dt, args.force, args.freeEnd,
-                args.springEnd, args.closedEnd)
+                args.springEnd, args.closedEnd, args.endTime)
     else:
         make_3d("coupled", L3D, True, c0, args.dt, args.force)
         make_1d("only1D", c0, args.force)

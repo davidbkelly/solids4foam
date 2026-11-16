@@ -232,14 +232,28 @@ velocity profile (max over eight instants of max |u - u_exact| / max
 |u_exact|). The time error is negligible: the 25 x 50 level at dt = 0.25
 and 0.125 ms gives the same errors to three digits (verified).
 
-Results so far (the 100 x 200 level is running; a referee will want all
-three): 25 x 50: ports 2.3e-5; 50 x 100: 4.3e-6 (order 2.4 between them);
-the profile errors and the third level to follow. Against the pipe of
-radius R instead of the equal-area pipe the port errors are 5.9e-5 and
-8.0e-5, i.e. no convergence, which is how the wedge-area effect was found.
-alpha = 3 and 12 on the two cheaper levels are running (at alpha = 3 the
-PIMPLE loop of the tutorial runs to its iteration cap on the base mesh;
-whether that limits the error will be stated).
+Results (the 100 x 200 level at alpha = 6 is still running; `space_alpha3.md`,
+`space_alpha12.md` verified):
+
+| alpha | mesh | ports (P, Q) | order | mid-length profile | order | PIMPLE it./step | wall time |
+|---|---|---|---|---|---|---|---|
+| 3 | 25 x 50 | 3.43e-5 | | 7.68e-3 | | 15.6 | 139 s |
+| 3 | 50 x 100 | 1.35e-5 | 1.35 | 2.18e-3 | 1.82 | 42.1 (cap of 50 hit on 240 of 2000 steps) | 1531 s |
+| 6 | 25 x 50 | 2.29e-5 | | (to follow) | | 8.9 | 78 s |
+| 6 | 50 x 100 | 4.28e-6 | 2.42 | | | 18.6 | 681 s |
+| 12 | 25 x 50 | 2.48e-5 | | 1.10e-2 | | 6.2 | 57 s |
+| 12 | 50 x 100 | 5.51e-6 | 2.17 | 2.50e-3 | 2.14 | 10.2 | 391 s |
+
+At alpha = 12 and 6 the ports converge at 2.2 to 2.4 and the profile at
+2.1, second order as the schemes are. At alpha = 3 the finer mesh's
+outer loop stalls: 240 of its 2000 steps run to the 50-iteration cap
+(the pressure residual stays near 4e-7 instead of reaching 1e-10, as the
+report noted for this viscosity), and the port order drops to 1.35 with
+the profile at 1.8; so at alpha = 3 the achievable error on the 50 x 100
+mesh (1.35e-5) is limited by the segregated algorithm's convergence, not
+by the mesh. Against the pipe of radius R instead of the equal-area pipe
+the alpha = 6 port errors are 5.9e-5 and 8.0e-5, i.e. no convergence,
+which is how the wedge-area effect was found.
 
 ### 4. The floor in the network case (B6): traced (verified)
 
@@ -383,6 +397,43 @@ BDF schemes, so the FSI runs of this item use a full build of the
 checkout's solids4FoamModels in a second scratch directory; the clamped
 case is rerun with it first to show the library change itself does not
 move the results (pending).
+
+**Library caveat (verified, needs a decision).** The clamped coupled run
+`coupled_c4p92` rerun with the checkout's own solids4FoamModels
+(`coupled_c4p92_lib2`, same case files) differs from the run made with
+the installed February library by 7.4 % of the peak in the port pressure
+(RMS over the 20 ms), 2.6 % in the pressure peak at z = 12.5 mm (1352
+against 1388 Pa) and 2.3 % in the peak wall displacement (146.8 against
+150.2 um). The case is unchanged; the solids4foam FSI machinery between
+the two versions is not (nine months of development on the Robin-Neumann
+coupling and the solid solver, plus this checkout's uncommitted BDF
+moving-mesh files from another session). The full tube is being rerun
+with the same build (`full3D_lib2`) so that every end-condition
+comparison of this item is made within one library; the report's FSI
+numbers (section on Formaggia) belong to the installed library. Which
+version the paper should use is a decision for the author; the
+coupled-against-full comparison is what matters and is being redone
+consistently.
+
+**(a) Result (verified; all four runs with the checkout build,
+`results.md`).** Peaks and RMS differences against `full3D_lib2`:
+
+| z [cm] | full tube [Pa] | clamped | free | spring | RMS(P - full) / pulse: clamped / free / spring |
+|---|---|---|---|---|---|
+| 2.5 | 1271 | 1303 | 1233 | 1233 | 3.0e-2 / 4.4e-2 / 5.1e-2 |
+| 3.75 | 1132 | 1169 | 1108 | 1111 | 4.6e-2 / 2.5e-2 / 2.5e-2 |
+| 5 (interface) | 1077 | 1104 | 1093 | 1098 | 4.4e-2 / 1.8e-2 / 2.2e-2 |
+| 6.25 | 1045 | 1096 | 1085 | 1089 | 6.9e-2 / 3.6e-2 / 4.6e-2 |
+
+The shell's static edge stiffness (1.04e7 Pa/m) is about a sixth of the
+ring's hoop stiffness E h/R^2, so the elastic support behaves nearly as
+the free end; the full tube lies between clamped and free/spring at every
+section. The static stiffness of the continuing wall is not what holds
+the ring in the full tube (its inertia and the pressure on the
+continuation are); the condition to build next is the continuity of area
+proper, a radial displacement of the cut ring driven by the 1D area,
+which needs the coupler to drive a solid boundary (not built; it is
+method development of the kind Phase 3 asks about first).
 
 **(b) The wave returning from the 1D side.** `--closedEnd` writes
 `full3D_closed` (the 15 cm FSI tube with a wall at its far end) and
