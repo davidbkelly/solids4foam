@@ -130,11 +130,36 @@ BDF 4 runs agree to 3.3e-6 of the flow and with the finest backward run to
 instead of 0.1 (`orders_cfl0.02.md`) change the runs by less than 1e-7. It
 is not the start (the smooth start above leaves it unchanged), not the
 PIMPLE convergence (the pressure residual reaches 3e-12 every step), and
-not the coupling order (the coupler runs at order 4). What in the 3D-1D
-exchange of this case, and not of the uniform-vessel cases
-(`dobroserdova2016`, `womersleySegment`, which reach 3.9 and 3.8), carries
-a dt-independent 3e-6 is open; candidates are the tapered stubs' end
-treatment and the junction nodes at the stubs' far ends. For the physics
-measured here (differences of 4 % of the pulse) a floor at 3e-6 is of no
-consequence, but it is the item to trace before claiming fourth order on a
-network.
+not the coupling order (the coupler runs at order 4).
+
+**The floor traced** (`floorStudy.py`, `floor.md`, `plots/floor.png`): the
+BDF 4 runs at dt = 1, 0.5 and 0.25 ms repeated with one change at a time,
+the difference between successive steps (RMS, relative to the signal) of
+the port flow and the order it gives:
+
+| variant | Q: e(1, 0.5) | e(0.5, 0.25) | order | P order |
+|---|---|---|---|---|
+| baseline (cone, tapered stubs) | 2.18e-05 | 1.88e-05 | 0.21 | 0.16 |
+| linear solvers to 1e-15, p residual 1e-12 | 2.18e-05 | 1.88e-05 | 0.21 | 0.16 |
+| one non-orthogonal corrector | 2.18e-05 | 1.88e-05 | 0.21 | 0.16 |
+| uniform stubs (the cone unchanged) | 2.18e-05 | 1.89e-05 | 0.21 | 0.16 |
+| `ddtCorr no` (flux correction off) | 1.48e-05 | 1.04e-05 | 0.50 | 0.70 |
+| cylinder of the mean radius instead of the cone | 2.76e-06 | 1.95e-07 | 3.82 | 3.91 |
+
+The floor is the 3D side's, on the cone: with the same network, stubs,
+coupling and schemes, the 3D segment as a cylinder (an orthogonal mesh)
+converges at 3.8-3.9, as the uniform-vessel cases do. The tapered stubs,
+the junctions, the solver tolerances and the non-orthogonal correction
+are not involved. On the cone, pimpleFoam's flux correction
+(`fvc::ddtCorr`, whose coupling coefficient switches on the local
+mismatch between the interpolated velocity and the flux, which is zero on
+an orthogonal mesh in plug or developed flow and not on a cone) carries
+about half of it; the rest is in the non-orthogonal mesh's own treatment
+in the segregated algorithm. Both are below the second-order error, which
+is why `backward` converges cleanly, and above the fourth-order one. For
+the physics measured here (differences of 4 % of the pulse) a floor at
+3e-6 is of no consequence; the claim to make is that the coupling takes
+the 3D scheme's order on the network when the 3D discretisation has that
+order, which the cylinder shows, and that a non-orthogonal 3D mesh in
+pimpleFoam does not go beyond second order in time, whatever the ddt
+scheme.
