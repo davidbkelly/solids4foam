@@ -708,6 +708,12 @@ Foam::scalar Foam::network1D::portDynamicPressure(const word& name) const
 }
 
 
+Foam::scalar Foam::network1D::portImpedance(const word& name) const
+{
+    return port(name).characteristicImpedance();
+}
+
+
 Foam::scalar Foam::network1D::portFlow(const word& name) const
 {
     return port(name).flow(t_);

@@ -34,6 +34,7 @@ Description
             scheme      implicit;   // explicit | implicit
             order       2;          // 1..4: degree of the forcing + 1
             pressure    static;     // optional: static | total
+            interface   dirichlet;  // optional: dirichlet | robin | aitken
             maxPressure 1e8;        // optional [Pa]
             seed        zero;       // optional, as for circulationCoupler
         }
@@ -68,6 +69,28 @@ Description
     Both sides are evaluated from the flux the coupling is exchanging, so
     the condition is iterated with it. The start-up summary states the
     choice.
+
+    "interface dirichlet" (the default) imposes that pressure on the patch
+    as a fixed value, lagged by one exchange. "interface robin" imposes it
+    through the impedance condition p = P* + Zc flowScale (Q - Q*) per
+    face (see circulation1DPressureFvPatchScalarField): the vessel end's
+    characteristic impedance Zc = rho c/A is the slope with which it
+    answers the port flow within a step, so the pressure equation sees the
+    1D side's response to the flux it is computing. The converged solution
+    is the same; the outer iteration of implicit coupling needs one or two
+    passes instead of contracting by dt/(a0 tau), and explicit coupling has
+    no dt/tau stability limit for linearised vessels. The price is that the
+    mixed condition slows the segregated solver's own pressure-velocity
+    iteration (by about k/(1 + k) per pass, k = zu rAU_f deltaCoeffs).
+
+    "interface aitken" keeps the Dirichlet condition and applies the same
+    impedance response as a relaxation of the imposed pressure: the
+    Robin fixed point is the Dirichlet one under-relaxed by
+    omega = 1/(1 + g), g = Zc |dQ/dp| the loop gain the model calls
+    dt/(a0 tau); omega is measured by Aitken's secant on the port
+    pressures over the exchanges of a step (the first exchange of a step
+    uses the previous step's omega; omega is kept in (0, 1]). Implicit
+    coupling only.
 
     The network sees each port's flow over a step [t0, t1] as a polynomial in
     alpha = (t - t0)/(t1 - t0), through samples of the flow:
@@ -184,6 +207,15 @@ private:
         //- The patch's dynamic pressure for it: mean, area or flux
         word kineticEnergy_;
 
+        //- The impedance (Robin) interface condition instead of the
+        //  Dirichlet one
+        bool robin_;
+
+        //- Aitken relaxation of the imposed pressures (implicit coupling)
+        bool aitken_;
+        scalar aitkenOmega_;
+        scalarField aitkenResidual_;
+
         //- Pressure at a port beyond which the coupling is taken to have
         //  diverged [Pa]
         scalar maxPressure_;
@@ -201,8 +233,18 @@ private:
             scalar stepStartQ;             //!< accepted flow at the step start
             FixedList<scalar, 3> history;  //!< earlier flows, most recent first
             scalar P;                      //!< pressure to impose [Pa]
+            scalar Pstar;                  //!< the network's pressure for
+                                           //!< the flow it was integrated
+                                           //!< with [Pa] (P before any
+                                           //!< relaxation)
             scalar dyn3D;                  //!< alpha3D rho U3D^2/2 of the
                                            //!< sampled flux [Pa]
+            scalarField phiStar;           //!< face fluxes of the flow the
+                                           //!< network was integrated with
+                                           //!< (this rank's faces) [m3/s]
+            scalar zu;                     //!< Zc flowScale A3D / rho: the
+                                           //!< Robin coefficient per unit
+                                           //!< of patch mean velocity [m/s]
         };
 
         List<portData> ports_;
@@ -286,6 +328,27 @@ public:
 
     //- Pressure to impose at a port [Pa]
     scalar patchPressure(const word& port) const;
+
+    //- The impedance (Robin) interface condition is selected
+    bool robin() const { return robin_; }
+
+    //- Number of exchanges (network integrations) so far: the Robin
+    //  condition refers its flux difference to the solve whose flux the
+    //  last exchange sampled
+    label exchangeCount() const { return totalUpdateCount_; }
+
+    bool implicitCoupling() const
+    {
+        return scheme_ == scheme::implicitScheme;
+    }
+
+    //- Robin coefficient of a port, Zc flowScale A3D / rho [m/s]: the
+    //  patch pressure p/rho rises by this per unit of mean outward velocity
+    scalar robinCoefficient(const word& port) const;
+
+    //- Face fluxes (this rank's faces) of the flow the network was last
+    //  integrated with: the iterate, or the extrapolated flow [m3/s]
+    const scalarField& iterateFlux(const word& port) const;
 
     scalar rho() const { return network_().rho(); }
 

@@ -248,6 +248,10 @@ public:
         //- Dynamic pressure rho U^2/2 at a port's vessel end [Pa]
         scalar portDynamicPressure(const word& name) const;
 
+        //- Characteristic impedance rho c/A of a port's vessel end at its
+        //  current state [Pa s/m3]
+        scalar portImpedance(const word& name) const;
+
         //- Flow of a port's forcing at the current time [m3/s]
         scalar portFlow(const word& name) const;
 

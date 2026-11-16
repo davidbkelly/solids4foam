@@ -29,4 +29,13 @@ sweep measures:
   eight times finer, so its order in `dt`, and the difference from the
   monolithic run.
 
+`coupling { interface robin; }` in `system/controlDict` makes the pipe see
+the ports through the coupler's Robin (impedance) interface, `P = P* -/+
+Zc (Q - Q*)` solved implicitly with the pipe (`Q*` the flow the network was
+integrated with, `Zc = rho c/A`): for this surrogate the ports' response
+within a step is exactly that slope, so one exchange per step reproduces
+the converged Dirichlet iteration (to 3e-9 of the peak at `dt/tau` =
+0.077) and the explicit scheme is stable at every order to `dt/tau = 16`
+(tested), where the Dirichlet limits are 4, 1.33, 0.57 and 0.27.
+
 See `src/circulationModels/docs/BENCHMARKS3D1D.md`.

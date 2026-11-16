@@ -123,6 +123,12 @@ public:
         //  boundary state (0 for a linearised vessel) [Pa]
         scalar dynamicPressure() const;
 
+        //- Characteristic impedance rho c/A of the vessel end at its
+        //  boundary state [Pa s/m3]: within one step the end answers a
+        //  change of the port flow with this slope of the pressure (its
+        //  reflections take a round trip to return)
+        scalar characteristicImpedance() const;
+
         virtual void setBoundary(const scalar t);
 
         virtual wordList columns() const;

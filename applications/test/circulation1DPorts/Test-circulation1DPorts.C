@@ -59,6 +59,15 @@ Description
 
         coupling { scheme implicit; order 2; nIter 50; tolerance 1e-10; }
 
+    "interface robin;" in that dictionary makes the pipe see the ports
+    through the impedance condition of the coupler's Robin interface,
+    P = P* -/+ Zc (Q - Q*) at the inlet/outlet port (P* the port's
+    pressure for the flow Q* the network was integrated with, Zc = rho c/A
+    its characteristic impedance), solved implicitly with the pipe: for
+    this surrogate the ports' response within a step is exactly that
+    slope, so the implicit iteration converges in one pass and the
+    explicit scheme has no dt/tau limit.
+
     deltaT of controlDict is the 3D time step. Writes
     postProcessing/surrogate3D.dat: t Q Pin Pout iterations rate. Stops with a
     message (exit status 2) if the flow grows beyond "maxFlow" (default 1).
@@ -143,6 +152,8 @@ int main(int argc, char *argv[])
     const label nIter = cd.getOrDefault<label>("nIter", 50);
     const scalar tol = cd.getOrDefault<scalar>("tolerance", 1e-10);
     const scalar maxFlow = cd.getOrDefault<scalar>("maxFlow", 1);
+    const bool robin =
+        cd.getOrDefault<word>("interface", "dirichlet") == "robin";
 
     if (order < 1 || order > 4)
     {
@@ -166,7 +177,13 @@ int main(int argc, char *argv[])
     network.summary(Info);
     Info<< "Surrogate: rigid pipe, L = " << L << " kg/m4, " << ddt
         << "; coupling " << (imp ? "implicit" : "explicit") << " order "
-        << order << ", deltaT " << runTime.deltaTValue() << nl << endl;
+        << order << ", " << (robin ? "Robin" : "Dirichlet") << " interface"
+        << ", deltaT " << runTime.deltaTValue() << nl
+        << "Port impedances Zc = rho c/A: " << network.portImpedance(inPort)
+        << " (3D inlet), " << network.portImpedance(outPort)
+        << " (3D outlet) Pa s/m3; 2 Zc dt/L = "
+        << (network.portImpedance(inPort) + network.portImpedance(outPort))
+          *runTime.deltaTValue()/L << nl << endl;
 
     // ---- Output ------------------------------------------------------------
 
@@ -249,13 +266,26 @@ int main(int argc, char *argv[])
             Pin = network.portPressure(inPort);
             Pout = network.portPressure(outPort);
 
-            // L ddt(Q) = Pin - Pout at t1
+            // L ddt(Q) = Pin - Pout at t1; with the Robin interface the
+            // ports' pressures move with Q at their impedance about the
+            // flow Qstar they were integrated with
             scalar rhs = dt*(Pin - Pout)/L;
             for (label k = 1; k < a.size(); ++k)
             {
                 rhs -= a[k]*pipe[k-1];
             }
-            return rhs/a[0];
+            if (!robin)
+            {
+                return rhs/a[0];
+            }
+            const scalar Qstar = circulationForcing::evaluate(c, 1);
+            const scalar Zin = network.portImpedance(inPort);
+            const scalar Zout = network.portImpedance(outPort);
+            const scalar Qnew =
+                (rhs + dt*(Zin + Zout)*Qstar/L)/(a[0] + dt*(Zin + Zout)/L);
+            Pin -= Zin*(Qnew - Qstar);
+            Pout += Zout*(Qnew - Qstar);
+            return Qnew;
         };
 
         scalar Q = Qn;

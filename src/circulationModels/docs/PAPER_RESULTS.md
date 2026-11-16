@@ -799,3 +799,255 @@ For the paper this replaces the cone's table as the network's time-order
 result: the coupling takes the 3D scheme's order in the 37-artery network
 when the 3D mesh is orthogonal; the cone's BDF 3/4 floor is pimpleFoam's
 on a non-orthogonal mesh (item 4, `floor.md`), and is stated as such.
+
+### R1. The 7 % between the two solids4foam builds: diagnosed (in progress)
+
+**Set-up.** The solids4foam `3dTube` tutorial (no 1D side: the
+Robin-Neumann FSI pulse tube, 20 ms at dt = 25 us, outerCorrTolerance
+1e-6), run with three builds on this Mac: the installed February 2026
+`libsolids4FoamModels` + `solids4Foam` (what the report's FSI numbers
+used), the checkout's working tree (`platform2`, the item 8 runs), and a
+clean `git archive 726e5ec61` without the uncommitted files
+(`platform3`). The wall's radial displacement at the tutorial's point
+(z = 2.5 cm), 800 steps:
+
+| build | peak [um] | at [ms] | FSI it/step | RMS / peak vs checkout | max / peak |
+|---|---|---|---|---|---|
+| installed (Feb 2026) | 149.86 | 7.22 | 3.03 | 2.0e-2 | 6.7e-2 |
+| checkout, working tree | 146.51 | 7.12 | 3.36 | 0 | 0 |
+| checkout, clean HEAD | 146.51 | 7.12 | 3.36 | 0 (bit-identical) | 0 |
+| installed, tolerance 1e-8 | 149.87 | 7.22 | 4.12 | 2.0e-2 | 6.7e-2 |
+| checkout, tolerance 1e-8 | 146.51 | 7.12 | 6.13 | 1.0e-7 | 6.8e-7 |
+
+So: (i) the difference is in solids4foam itself, not in the 1D
+coupling (the tube alone shows it); (ii) the uncommitted files (BDF
+scheme, 0D coupler, mesh motion) are not involved (clean HEAD is
+bit-identical to the working-tree build); (iii) the FSI tolerance is not
+the cause (tightening it by 100 moves either build by less than 3e-5 of
+the peak; the two builds stay 2 % apart). The same case on xenosim with
+the clean HEAD (gcc, Ubuntu package OpenFOAM) agrees with the Mac's
+checkout build to 3e-7 of the peak.
+
+**Which commit.** The candidate found first, `28751407c` of 6 October
+("FSI: fix two defects in the wall force and the interface point
+transfer": a tmp-aliasing error in the wall viscous force at gcc -O3, and
+degenerate barycentric weights in the interface point transfer), changes
+the 3dTube by 5e-4 of the peak (built and run on xenosim at that commit
+and at its parent), so it is not the 2 %. Of the 288 commits touching the
+solid, fluid and FSI code between the two builds the suspects are the
+solid-model rewrite of September 2026 (the `mechanicalConstitutiveLaw`
+framework made the solid models' only path, `25c7a7758`, with the
+hydrostatic smoothing `902c51d2c`), the FSI predictor made the default
+(`7709d76a4`), and the elasticWallPressure changes of 22-24 September. An
+automated bisect is running on xenosim (the clean 3dTube case of HEAD
+run for 8 ms on 4 ranks at each commit, 12 minutes a step; the Mac's
+shared clone `scratchpad/bisclone`, script `scratchpad/bis/step.sh`,
+results in `scratchpad/bis/results.txt`); its first step checks that the
+development commit of 4 February (`4b254fa52`) reproduces the installed
+build.
+
+**Which build is right.** Not decided until the bisect names the
+commit; what can be said now: the checkout build is the one that
+corresponds to a committed state of solids4foam, it passes the
+tutorial's own CI regression tests, and the February binary cannot be
+tied to a commit. If the bisect lands on a fix (as `28751407c` was, for
+its 0.1 %), the February numbers were wrong and the paper uses the
+checkout; if it lands on a modelling change (e.g. the constitutive-law
+rewrite), that is a change in solids4foam to raise with its developers,
+with the 3dTube case as the evidence.
+
+### R7. The Robin (impedance) interface condition (in progress)
+
+**Implemented** as an option of the coupler, `coupling { interface
+robin; }` (default `dirichlet`, the coupling as before; the Dirichlet
+path reproduces the stored rigid-segment baseline to the last digit,
+1e-16). The patch condition becomes
+
+    p = P*/rho + zu (u_n - u_n*),   zu = Zc flowScale A3D / rho,
+
+per face: P* the vessel end's pressure for the flow Q* the network was
+integrated with (the iterate; for explicit coupling the extrapolated
+flow), u_n* the face velocity of that flow, Zc = rho c/A the vessel
+end's characteristic impedance at its current state (`network1D::
+portImpedance`). It is a mixed condition, p = f R + (1 - f) p_P with f =
+1/(1 + k), k = zu rAU_f deltaCoeffs, R = P*/rho + zu (phiHbyA - phi*)/
+|Sf|, so the pressure equation sees the 1D side's response to the flux it
+is computing; rAU_f is recovered exactly from the solver's
+`constrainPressure` call (the condition implements `updateableSnGrad`)
+and `phiHbyA`. At the fixed point u_n = u_n* on every face and p = P*
+uniform: the converged solution is the Dirichlet one (verified: the
+rigid segment at dt = 0.5 ms agrees with the stored Dirichlet run to
+6e-9).
+
+**The scalar model, extended.** Within a step a vessel end answers the
+port flow as P = P0 - Zc Q (inlet port; + at the outlet), P0 the
+incoming wave. With the Dirichlet interface the pipe step sees P(Q*) of
+the previous iterate: the fixed point contracts by dt/(a0 tau) and the
+explicit scheme is stable below the dt/tau limits of the first round.
+With the Robin interface the step sees P(Q*) -/+ Zc (Q - Q*) = P0 -/+
+Zc Q: the iterate drops out, so the implicit iteration converges in one
+exchange and the explicit scheme has no dt/tau limit at all for
+linearised vessels (what it extrapolates is only P0, which within a
+step does not depend on Q). For nonlinear vessels the residual loop gain
+is (1 - Zc_imposed/Zc_tangent) dt/tau, a few per cent of the Dirichlet
+one.
+
+**The 1D surrogate (verified; `Test-circulation1DPorts` gains
+`interface robin`).** BDF2 pipe of tau = 6.48 ms, the tutorial's ports:
+
+- implicit order 2 at dt = 0.5 ms (dt/tau = 0.077): with ONE exchange
+  per step the Robin run agrees with the converged Dirichlet run to
+  3.2e-9 of the peak (the Dirichlet run with two exchanges: 1.6e-3);
+  the Dirichlet iteration contracts by 0.051 per pass as the model says;
+- explicit, orders 1 to 4, dt/tau = 1, 2, 4, 8, 16 (the Dirichlet limits
+  are 4, 1.33, 0.57, 0.27): every Robin run is stable (the peak flow
+  stays within a factor 3 of the resolved pulse's at dt/tau = 16, where
+  the step is 100 ms and the pulse is unresolved); every Dirichlet run
+  beyond its limit diverges.
+
+**In 3D (rigid segment, implicit order 2, dt = 0.5 ms; in progress).**
+The interface pressure P* converges in 2 to 3 exchanges (to 1e-10
+relative) where the Dirichlet needs 9; but the PIMPLE loop then needs 17
+outer iterations instead of 9 to bring the pressure residual to 1e-10,
+because the mixed condition couples the boundary pressure to the
+momentum predictor's flux (the p residual then decays by 0.4 per outer
+iteration, a mode the Dirichlet condition does not have). So at this
+small dt/tau the Robin interface converges the coupling faster but the
+step is not cheaper.
+
+**In 3D, measured (verified; `scratchpad/item7`).** PIMPLE outer
+iterations per step to a p residual of 1e-10 (the stored cases' own
+criterion), the converged solutions agreeing to 1e-8 or better:
+
+| case | dt | dt/tau | Dirichlet | Robin (mixed) |
+|---|---|---|---|---|
+| rigid segment, implicit 2 | 0.5 ms | 0.077 | 11.1 | 15.3 (coupling converged after 2-3) |
+| rigid segment, implicit 2 | 2 ms | 0.31 | 19.6 | 28.4 |
+| rigid segment, implicit 2 | 4 ms | 0.62 | 22.6 | 29.0 |
+| rigid segment, implicit 2 | 8 ms | 1.23 | 30.2 | 30.4 |
+| resonator (sine, 3D), implicit 2 | 1 ms | - | 11.0 | 18.5 |
+| 37-artery network, implicit 2 | 1 ms | - | 5.0 | 15.0 |
+
+At dt = 2 to 8 ms the Dirichlet count is no longer the coupling's
+(dt/(a0 tau) = 0.2 to 0.8 would need 14 to 100 passes): it is the 3D
+solver's own, and the Robin count is the same or higher. So the mixed
+condition does not save outer iterations in pimpleFoam; what it does is
+remove the explicit limit:
+
+| rigid segment, explicit order 2 | dt | dt/tau | Dirichlet | Robin |
+|---|---|---|---|---|
+| | 16 ms | 2.5 | diverges (2300 x the peak) | stable, max error 0.36 of the peak (16 ms steps on a 50 ms pulse) |
+| | 32 ms | 4.9 | - | stable |
+
+(The Dirichlet limit for order 2 with BDF2 is dt/tau = 1.33.)
+
+**The relaxed Dirichlet form (`interface aitken`).** Since the Robin
+fixed point is the Dirichlet one under-relaxed by omega = 1/(1 + g), g
+the loop gain (dt/(a0 tau) in the model), the same response can be
+applied without the mixed condition: Aitken's secant on the port
+pressures over the exchanges of a step measures omega (first exchange of
+a step at the previous step's omega; omega kept in (0, 1]); the boundary
+condition stays Dirichlet, so the 3D solver's iteration is untouched.
+Measured (verified, same cases and criterion; the converged solutions
+agree with the Dirichlet ones to 7e-9 or better):
+
+| case | dt/tau | Dirichlet | Robin (mixed) | Aitken-relaxed Dirichlet |
+|---|---|---|---|---|
+| rigid segment, 0.5 ms | 0.077 | 11.1 | 15.3 | 9.2 |
+| rigid segment, 4 ms | 0.62 | 22.6 | 29.0 | 19.5 |
+| rigid segment, 8 ms | 1.23 | 30.2 | 30.4 | 23.6 |
+| resonator, 1 ms | - | 11.0 | 18.5 | 9.5 |
+| network, 1 ms | - | 5.0 | 15.0 | 5.0 |
+
+The relaxed form saves 15 to 20 % of the outer iterations where the
+coupling's contraction is a visible part of the count, and nothing on
+the network, where five passes are the 3D solver's own. The conclusion
+for the paper: in a segregated pressure-based 3D solver the outer
+iterations are mostly the solver's, not the coupling's, once dt/tau is
+below about 0.1 (as it is in the physiological cases: 0.02 on the
+network); the Robin interface's gain is the explicit scheme's stability,
+not the implicit scheme's cost.
+
+**Order study with the Robin interface (verified; `rigidSegment3D/
+highOrder.py run 6 --linear --robin`, 20 runs, 1.5 h with 6 at a time;
+`highOrder_linear_robin.md`, `plots/highOrder3D1D_linear_robin.png`).**
+Against the closed form, implicit order 4, 2 and 1 give the same errors
+as with the Dirichlet interface to three digits at every level (the
+same fixed point, orders 3.93 to 4.00 on the flux and pressures, 2 and 1
+on the waves for orders 2 and 1); explicit order 4 keeps fourth order
+at every level with the Robin interface, its flux equal to the
+implicit's to three digits and its pipe-end pressure error 1.35 times
+the Dirichlet-explicit one (5.62e-3 to 8.67e-8 over the five levels,
+orders 3.99 to 4.00). So the Robin interface changes neither the
+converged solution nor the order of either scheme.
+
+**Status of item 7: done.** Files: `circulation1DCoupler.{H,C}`
+(`interface dirichlet | robin | aitken`, `portImpedance`, the iterate
+fluxes), `circulation1DPressureFvPatchScalarField.{H,C}` (now a mixed
+condition with `updateableSnGrad`; Dirichlet mode bit-identical to the
+old fixed value), `coupledFlow::characteristicImpedance`,
+`network1D::portImpedance`, `Test-circulation1DPorts` (`interface
+robin`), `highOrder.py --robin`, BENCHMARKS3D1D.md (the model extended).
+
+### R2. Womersley spatial order: the stall cured (in progress)
+
+**Diagnosis (verified, short runs of 0.25 to 0.3 s at alpha = 6).** On
+the tutorial's wall-graded wedge the outer loop's slow convergence is the
+segregated algorithm's, and it worsens with refinement (18.6 passes per
+step at 50 x 100, 45 at 100 x 200, to a p residual of 1e-10). Tried:
+
+| mesh | predictor | p solver | passes per step (wave present) | notes |
+|---|---|---|---|---|
+| 50 x 100 graded (tutorial) | off | PCG | 18.6 (1 s window) | the first round |
+| 50 x 100 uniform | off | PCG | 8.0 | converges to 1e-10 every step |
+| 50 x 100 uniform | on | PCG | 6.4 (nCorrectors 1), 5.3 (3) | 6 steps near the wave's arrival do not reach 1e-10: with the predictor on, the second corrector's p residual sits at 5e-9 whatever the outer iteration, because the port condition is evaluated on the predicted flux in the first corrector and on the corrected one in the second |
+| 50 x 100 uniform | off | GAMG | 8.0 | no faster than PCG (57 s against 65 s) |
+| 100 x 200 uniform | off | PCG | 14.2 | 1 s in about 50 minutes |
+| 100 x 200 uniform | off | GAMG | 14 | slower than PCG |
+| 100 x 200 graded | on | PCG | 9.8 | same non-convergence near the arrival |
+| 200 x 400 uniform | off | PCG | - | 14 h per second of simulation: not used |
+
+So the family for the paper is the **uniform mesh with the predictor off
+and PCG** (the only combination that converges to 1e-10 at every step),
+at 25 x 50, 50 x 100 and 100 x 200; the wedge is scaled by sqrt(theta/sin
+theta) so that its cross-section is pi R^2 and the exact solution is that
+of the pipe of radius R, independent of the mesh (`spaceStudy.py
+--family uniform`, runs `space_alpha6_u_x*`). At alpha = 6 the Stokes
+layer (2.4 mm) has 6, 12 and 24 uniform cells on the three levels. The
+three runs are on xenosim (`space_u.slurm`; 25 x 50 in 2 minutes,
+50 x 100 in 20, 100 x 200 in about 2 hours).
+
+**Result (verified; `space_alpha6_u.md`, `plots/space_alpha6_u.png`),**
+alpha = 6, 0 to 1 s from rest, BDF 4 and coupling order 4 at dt = 0.5
+ms, linearised vessels at fourth order, against the exact transient of
+the pipe of radius R:
+
+| nr x nz | P ports | order | Q | order | profile (max over r) | order | profile, r < 0.97 R | order | passes/step | time [s] |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 25 x 50 | 1.35e-04 | | 1.35e-04 | | 4.49e-02 | | 7.41e-03 | | 5.8 | 69 |
+| 50 x 100 | 3.36e-05 | 2.01 | 3.36e-05 | 2.01 | 2.39e-02 | 0.91 | 2.33e-03 | 1.67 | 8.4 | 322 |
+| 100 x 200 | 1.05e-05 | 1.68 | 1.05e-05 | 1.68 | 1.33e-02 | 0.84 | 1.51e-03 | 0.63 | 14.8 | 3508 |
+
+Every step converges to the 1e-10 p residual except 34 to 62 steps per
+run at the start, at t = 0.52 and at t = 0.99 s, where the normalised
+residual cannot be met because the pressure field passes through zero
+(the normalisation vanishes); they are harmless. Two things are not
+clean yet and are being checked:
+
+- the profile's max-norm error sits at the last sample point, 5 um from
+  the wall (r = 0.9995 R, the `sets` function object's cellPoint
+  interpolation between the wall value and the first cell), i.e. it is
+  the sampling's first-order interpolation, not the solution's; away
+  from the wall (r < 0.97 R) the error is 3 to 30 times smaller but its
+  order is not 2 either on the finest pair;
+- the port error's order drops from 2.01 to 1.68 on the finest pair,
+  and the error grows with time within each run (level 2: 1.9e-6,
+  4.7e-6, 1.3e-5, 1.6e-5 of the signal over the four quarters of the
+  second; level 1: 8.3e-6, 1.8e-5, 5.1e-5, 3.8e-5), with a ratio between
+  levels that falls to 2.4 in the last quarter: a non-spatial
+  contribution appearing after about 0.5 s, i.e. after the pipe's
+  reflection has travelled back to the vessels' ends (2 x 0.162 s). Two
+  checks run on xenosim (`space_u2_checks.slurm`): the 100 x 200 level
+  with the 1D side refined (800 cells, CFL 0.25) and with the time step
+  halved; a fourth level, 200 x 400, runs on the long partition (about
+  a day). Whichever moves the late-time error names the floor.

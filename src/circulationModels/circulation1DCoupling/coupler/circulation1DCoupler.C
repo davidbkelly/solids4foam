@@ -227,6 +227,9 @@ Foam::circulation1DCoupler::circulation1DCoupler
     order_(1),
     totalPressure_(false),
     kineticEnergy_("mean"),
+    robin_(false),
+    aitken_(false),
+    aitkenOmega_(1),
     maxPressure_(1e8),
     historyDt_(0.0),
     historyDepth_(0),
@@ -277,6 +280,24 @@ Foam::circulation1DCoupler::circulation1DCoupler
     }
 
     maxPressure_ = cd.getOrDefault<scalar>("maxPressure", 1e8);
+
+    {
+        const word itf = cd.getOrDefault<word>("interface", "dirichlet");
+        if (itf == "robin")
+        {
+            robin_ = true;
+        }
+        else if (itf == "aitken")
+        {
+            aitken_ = true;
+        }
+        else if (itf != "dirichlet")
+        {
+            FatalIOErrorInFunction(cd)
+                << "interface must be dirichlet, robin or aitken, not '"
+                << itf << "'" << exit(FatalIOError);
+        }
+    }
 
     {
         const word pr = cd.getOrDefault<word>("pressure", "static");
@@ -414,7 +435,9 @@ Foam::circulation1DCoupler::circulation1DCoupler
         p.stepStartQ = 0;
         p.history = 0.0;
         p.P = 0;
+        p.Pstar = 0;
         p.dyn3D = 0;
+        p.zu = 0;
         ports_.append(p);
     }
 
@@ -536,7 +559,10 @@ Foam::circulation1DCoupler::circulation1DCoupler
             << ", " << (totalPressure_ ? "total" : "static")
             << " pressure continuity"
             << (totalPressure_ ? " (kineticEnergy " + kineticEnergy_ + ")" : "")
-            << ", ports:";
+            << ", "
+            << (robin_ ? "Robin (impedance)"
+              : aitken_ ? "Dirichlet with Aitken relaxation" : "Dirichlet")
+            << " interface, ports:";
         for (const portData& p : ports_)
         {
             Info<< ' ' << p.name << "->" << network_().portPatch(p.name);
@@ -882,7 +908,57 @@ void Foam::circulation1DCoupler::advance(const Time& runTime)
 
     for (portData& p : ports_)
     {
-        p.P = imposedPressure(p);
+        p.Pstar = imposedPressure(p);
+        if (!(aitken_ && imp))
+        {
+            p.P = p.Pstar;
+        }
+
+        // The Robin interface: the vessel end's impedance per unit of the
+        // patch's mean velocity, and the face fluxes of the flow the network
+        // was integrated with (explicit coupling: the sampled fluxes shifted
+        // uniformly to the extrapolated flow at t1)
+        const scalarField& magSf = mesh_.magSf().boundaryField()[p.patchID];
+        const scalar Apatch = gSum(magSf);
+        p.zu =
+            network_().portImpedance(p.name)*p.flowScale*Apatch
+           /network_().rho();
+        if (!imp && Apatch > VSMALL)
+        {
+            const scalar dQ = network_().portFlow(p.name) - p.Q;
+            const scalar dphi = (p.inlet ? -dQ : dQ)/p.flowScale;
+            p.phiStar += dphi*magSf/Apatch;
+        }
+    }
+
+    // Aitken relaxation of the imposed pressures over the exchanges of a
+    // step (the residual is the network's pressure against the pressure
+    // imposed so far)
+    if (aitken_ && imp)
+    {
+        scalarField r(ports_.size());
+        forAll(ports_, i)
+        {
+            r[i] = ports_[i].Pstar - ports_[i].P;
+        }
+        if (stepUpdateCount_ > 0 && aitkenResidual_.size() == r.size())
+        {
+            const scalarField d(r - aitkenResidual_);
+            const scalar dd = sum(sqr(d));
+            if (dd > VSMALL)
+            {
+                const scalar w = -aitkenOmega_*sum(aitkenResidual_*d)/dd;
+                if (std::isfinite(w) && w > 0)
+                {
+                    aitkenOmega_ = min(w, scalar(1));
+                }
+            }
+        }
+        aitkenResidual_ = r;
+        forAll(ports_, i)
+        {
+            ports_[i].P += aitkenOmega_*r[i];
+        }
     }
 
     // Divergence guard: stop at a clear threshold with advice, rather than
@@ -1005,6 +1081,7 @@ void Foam::circulation1DCoupler::sampleAndAdvance(const fvMesh& mesh)
         const scalarField& phip = phi.boundaryField()[p.patchID];
         const scalar leaving = p.flowScale*gSum(phip);
         p.Q = p.inlet ? -leaving : leaving;
+        p.phiStar = phip;
 
         if (totalPressure_)
         {
@@ -1065,6 +1142,42 @@ Foam::scalar Foam::circulation1DCoupler::patchPressure(const word& port) const
 
     FatalErrorInFunction << "No port '" << port << "'" << exit(FatalError);
     return 0;
+}
+
+
+Foam::scalar Foam::circulation1DCoupler::robinCoefficient
+(
+    const word& port
+) const
+{
+    for (const portData& p : ports_)
+    {
+        if (p.name == port)
+        {
+            return p.zu;
+        }
+    }
+
+    FatalErrorInFunction << "No port '" << port << "'" << exit(FatalError);
+    return 0;
+}
+
+
+const Foam::scalarField& Foam::circulation1DCoupler::iterateFlux
+(
+    const word& port
+) const
+{
+    for (const portData& p : ports_)
+    {
+        if (p.name == port)
+        {
+            return p.phiStar;
+        }
+    }
+
+    FatalErrorInFunction << "No port '" << port << "'" << exit(FatalError);
+    return scalarField::null();
 }
 
 // ************************************************************************* //

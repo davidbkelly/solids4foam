@@ -61,6 +61,7 @@ REF = (6400, 1.25e-4)
 COUPLINGS = [("implicit", 4), ("explicit", 4), ("implicit", 2),
              ("implicit", 1)]
 LINEAR = "--linear" in sys.argv
+ROBIN = "--robin" in sys.argv          # the coupler's Robin (impedance) interface
 
 # The closed form: the inflow of Boileau Eq. 14 at full amplitude
 L_VESSEL = 1.0
@@ -71,7 +72,8 @@ P_INC = Z0*1e-6                         # incident peak [Pa]
 
 
 def name(scheme, order, n):
-    return f"{'HOL' if LINEAR else 'HO'}_{scheme[0].upper()}{order}_n{n}"
+    return (f"{'HOL' if LINEAR else 'HO'}{'R' if ROBIN else ''}"
+            f"_{scheme[0].upper()}{order}_n{n}")
 
 
 def pinc(T):
@@ -151,7 +153,8 @@ def setup(scheme, order, n, dt):
         (r"^(\s+nCells\s+)\S+;.*$", rf"\g<1>{n};"),
         (r"^(\s+scale\s+)\S+;.*$", r"\g<1>1;"),
     ] + ([(r"^(\s+initialPressure\s+0;)",
-           "\\1\n    linearised          true;")] if LINEAR else []))
+           "\\1\n    linearised          true;")] if LINEAR else [])
+      + ([(r"^(\s+order\s+\S+;)", "\\1\n    interface   robin;")] if ROBIN else []))
     return case
 
 
@@ -263,7 +266,7 @@ def analyse():
                              f"{math.log(rows[i-1][k]/r[k])/math.log(2):.2f}")
             lines.append("| " + " | ".join(cells) + " |")
         lines.append("")
-    suffix = "_linear" if LINEAR else ""
+    suffix = ("_linear" if LINEAR else "") + ("_robin" if ROBIN else "")
     (HERE/f"highOrder{suffix}.md").write_text("\n".join(lines))
     print("\n".join(lines))
     figure(results, suffix)
@@ -349,7 +352,7 @@ def main():
     if "--reference" in sys.argv:
         write_reference()
         return
-    args = [a for a in sys.argv[1:] if a != "--linear"]
+    args = [a for a in sys.argv[1:] if a not in ("--linear", "--robin")]
     if args[:1] == ["run"]:
         nproc = int(args[1]) if len(args) > 1 else 6
         RUNS.mkdir(exist_ok=True)

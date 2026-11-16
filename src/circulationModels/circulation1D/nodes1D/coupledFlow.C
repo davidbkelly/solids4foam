@@ -104,6 +104,15 @@ Foam::scalar Foam::coupledFlow::dynamicPressure() const
 }
 
 
+Foam::scalar Foam::coupledFlow::characteristicImpedance() const
+{
+    const vessel1D& v = vessel(0);
+    const scalar A = v.boundaryArea(end(0));
+
+    return v.rho()*v.endLaw(end(0)).waveSpeed(A)/A;
+}
+
+
 void Foam::coupledFlow::setBoundary(const scalar t)
 {
     // Q along the vessel; the flow into the node is s Q

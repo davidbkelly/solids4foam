@@ -109,6 +109,24 @@ unstable through a complex pair of roots, the others at -1, the step-to-step
 mode). The plain fixed-point iteration of implicit coupling contracts by
 `dt/(a0 tau)` per iteration, `a0` the leading BDF coefficient (1, 3/2, 11/6,
 25/12), so it converges for `dt/tau < a0`.
+
+**The interface condition.** The limits above are those of the Dirichlet
+interface (the port pressure of the previous exchange imposed as a value).
+Within a step a vessel end answers the port flow as `P = P0 -/+ Zc Q`
+(inlet/outlet port), `P0` the incoming wave; the Robin interface of the
+coupler (`interface robin`) imposes `p = P(Q*) -/+ Zc (Q - Q*)` implicitly
+in the pressure equation, so the step sees `P0 -/+ Zc Q` and the iterate
+`Q*` drops out: the implicit iteration converges in one exchange and the
+explicit scheme has no `dt/tau` limit for linearised vessels (what it
+extrapolates is `P0`, which within a step does not depend on `Q`); for
+nonlinear vessels the residual gain is `(1 - Zc/Zc_tangent) dt/tau`.
+Measured on the surrogate: one exchange per step reproduces the converged
+Dirichlet iteration to 3e-9 of the peak, and explicit orders 1 to 4 are
+stable to `dt/tau = 16`. The same response can be applied as a relaxation
+of the Dirichlet value, `omega = 1/(1 + dt/(a0 tau))`, which Aitken's
+secant measures on the fly (`interface aitken`); in 3D the mixed condition
+slows the segregated pressure-velocity iteration itself, so the relaxed
+Dirichlet form is the one that saves outer iterations.
 `applications/test/circulation1DPorts` checks this with a rigid-pipe
 surrogate for the CFD. For a general 3D domain, `tau` becomes `L/(2 Z_c)`
 with `L` the domain's inertance between its coupled ends.
