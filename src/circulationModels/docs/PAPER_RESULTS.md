@@ -39,6 +39,19 @@ work goes.
   the cause was open with the stubs and junctions as candidates; it is the
   non-orthogonal cone mesh in pimpleFoam (the cylinder converges at 3.8 to
   3.9).
+- **The FSI tube's numbers depend on the solids4foam library (item 8).**
+  The report's Formaggia results were made with the installed February
+  2026 `libsolids4FoamModels`; the same case with the checkout's own build
+  differs by 7 % of the peak in the port pressure and 2 to 3 % in the
+  pressure and displacement peaks. Every end-condition comparison of item
+  8 is made within one library (the checkout's), against its own full-tube
+  reference; which library the paper quotes is the author's decision.
+- **The rigid segment's "floor" at full amplitude is the 1D nonlinearity
+  (item 1).** Fourth order holds against the exact solution of the linear
+  problem to 2e-8 with no floor; the 2e-5 floor of the report's
+  self-convergence study at full amplitude is the reflected wave of a
+  low-order coupling interacting with the incident one at second order in
+  amplitude, which the linear problem does not have.
 
 ## Preliminaries
 
@@ -383,9 +396,52 @@ against the vessels, dt/tau small), 11 on the rigid segment at dt = 0.5 ms
 algorithm without momentum predictor on the wall-graded mesh sets the
 count, not the coupling (the uncoupled pipe needs as many).
 
+### 7. The benchmark package (done)
+
+**Specifications.** `src/circulationModels/docs/BENCHMARKS3D1D.md` now
+carries, for each of the five cases, a table another code can follow
+without this one: geometry, material data, inlet and outlet conditions,
+initial state, the interface condition, the exact (or numerical)
+reference with its formula, the quantities of interest, the error norms
+and the refinement path: 1 (rigid segment), 1b (Womersley segment), 1c
+(resonator), 1d (FSI tube, numerical reference), 1e (network, numerical
+references). Each states the two conventions found in item 1 and in the
+"what changed" list: cell averages against cell averages of the closed
+form, and the reference taking the area the 3D mesh has (32-gon,
+equal-area wedge).
+
+**Exact references as CSV (regenerated in seconds, ignored by git).**
+
+| case | command | files |
+|---|---|---|
+| rigid segment | `python3 src/circulationModels/docs/benchmarks3D1D.py csv` | `docs/reference/rigidSegment_pipe.csv` (Q, P1, P2 every 0.1 ms), `rigidSegment_{proximal,distal}_t0.35.csv` (P, Q, A every 0.5 mm) |
+| Womersley segment | `womersleySegment/analyse.py --csv` | `reference/alpha{3,6,12}_ports.csv` (0 to 6 s every 0.1 ms), `_periodic.csv` (complex amplitudes, Gamma, T), `_profiles.csv` (u(r, t), 101 radii, 8 instants) |
+| resonator | `dobroserdova2016/analyse.py --csv` | `reference/{sine,step}_c{350,700,1050}_{hard,soft}_pipe1D.csv`, `..._hard_pipe3D.csv` (every 0.1 ms; the 3D variant with the 32-gon area) |
+
+**Numerical references at physiological amplitude (committed, labelled
+numerical in their header).** The nonlinear 1D equations have no closed
+form at this amplitude, so the finest run is the reference and the next
+coarser run bounds its discretisation error.
+
+| case | reference run | files | coarser run against it |
+|---|---|---|---|
+| rigid segment (`rigidSegment3D/highOrder.py --reference`) | inflow x 1 (Boileau Eq. 14), implicit 4, 6400 cells per vessel, dt = 0.125 ms, kExact 3 + RK4, BDF 4 pipe | `rigidSegment3D/reference/rigidSegment_physiological_pipe.csv`, `_{proximal,distal}_t0.35.csv` | 4e-7 of the peak (the fourth-order sequence of `highOrder.md`) |
+| Womersley segment (`womersleySegment/physiological.py`) | alpha = 6, incident wave 5 kPa (0.12 rho c0^2) over the first second from rest, BDF 4 and coupling 4 at dt = 0.25 ms, kExact 3 + RK4 on 800 cells, 100 x 200 wedge (1 h on 2 cores for the two runs) | `womersleySegment/reference/alpha6_physiological_ports.csv` (P_in, Q, P_out every 0.25 ms), `_profiles.csv` (u(r, t) at 9 instants) | 50 x 100: 5.1e-6 / 5.7e-6 / 5.8e-6 (RMS / RMS, P_in / Q / P_out), 7.6e-4 on the profile (`physiological.md`) |
+
+At 5 kPa the Womersley run differs from the linear exact solution scaled
+to that amplitude by 6 % (P_in), 11 % (Q) and 5 % (P_out) RMS: that is
+the 1D nonlinearity (at the peak U = P/(rho c0) = 0.77 m/s is 0.12 c0,
+and the sqrtElastic wall stiffens by another 3 % in c, so the forward
+characteristic runs about 15 % faster than c0 there; inferred from the
+equations, not measured), a measure of what the linearised tests leave
+out, and the reason the physiological variant needs a numerical
+reference.
+The two mesh levels agree to 6e-6 at the ports, the same spacing as the
+linearised study of item 3, so the reference is converged to that.
+
 ## Phase 2
 
-### 8. The compliant FSI tube (B4): in progress
+### 8. The compliant FSI tube (B4): (a) and (b) verified, (c) awaiting a decision
 
 **(a) Elastic support on the cut end of the wall.** Implemented in
 `formaggia2007/makeCases.py --springEnd` with the `solidSpringDashpot`
@@ -402,8 +458,8 @@ clamped (infinite) and free (zero). Note on the machine: the installed
 `libsolids4FoamModels` (February 2026) has neither this condition nor the
 BDF schemes, so the FSI runs of this item use a full build of the
 checkout's solids4FoamModels in a second scratch directory; the clamped
-case is rerun with it first to show the library change itself does not
-move the results (pending).
+case was rerun with it first to see whether the library change itself
+moves the results (it does: next paragraph).
 
 **Library caveat (verified, needs a decision).** The clamped coupled run
 `coupled_c4p92` rerun with the checkout's own solids4FoamModels

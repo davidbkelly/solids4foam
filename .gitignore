@@ -139,3 +139,5 @@ tutorials/circulationModels/coupling3D1D/dobroserdova2016/reference/
 tutorials/circulationModels/coupling3D1D/womersleySegment/reference/alpha*_ports.csv
 tutorials/circulationModels/coupling3D1D/womersleySegment/reference/alpha*_periodic.csv
 tutorials/circulationModels/coupling3D1D/womersleySegment/reference/alpha*_profiles.csv
+# but not the numerical reference at physiological amplitude (physiological.py, an hour of runs)
+!tutorials/circulationModels/coupling3D1D/womersleySegment/reference/alpha6_physiological_*.csv

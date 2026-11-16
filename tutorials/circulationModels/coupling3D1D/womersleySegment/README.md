@@ -116,6 +116,20 @@ second), for other codes; `spaceStudy.py` measures the wedge's order in
 space against them, and `physiological.py` makes a numerical reference at
 5 kPa, where the 1D equations are nonlinear.
 
+**Physiological amplitude (numerical reference).** `physiological.py run`
+repeats the alpha = 6 case with an incident wave of 5 kPa (0.12 of
+rho c0^2; the ports differ from the linear solution scaled to 5 kPa by
+6 % in P_in, 11 % in Q and 5 % in P_out, RMS) over the first second from
+rest, on the nonlinear vessels (kExact 3 + RK4, 800 cells), BDF 4 and
+coupling order 4 at dt = 0.25 ms, on the 50 x 100 and 100 x 200 wedges.
+The finer run is the reference, written to
+`reference/alpha6_physiological_ports.csv` (every 0.25 ms) and
+`_profiles.csv` (u(r, t) at nine instants), labelled numerical; the
+coarser run differs from it by 5.1e-6, 5.7e-6 and 5.8e-6 (RMS / RMS of
+P_in, Q, P_out) and 7.6e-4 on the mid-length profile (`physiological.md`),
+the same spacing as the linearised study above, so the reference is
+converged to that. The two runs take an hour on two cores.
+
 ## Order in space
 
 `spaceStudy.py run [--alpha 6]` (`space_alpha6.md`, `plots/space_alpha6.png`;

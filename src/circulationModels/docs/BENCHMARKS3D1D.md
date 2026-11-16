@@ -242,6 +242,7 @@ ladder: implemented and measured in `tutorials/circulationModels/coupling3D1D/wo
 | error norm | amplitude relative to the exact one, phase in degrees; RMS of the time series relative to the RMS of the exact; max over the instants of max over r of |u - u_exact| / max |u_exact| |
 | reference files | `reference/alpha{3,6,12}_ports.csv` (0 to 6 s every 0.1 ms), `_periodic.csv` (complex amplitudes, Gamma, T), `_profiles.csv` (u(r, t) at r in 101 points, t = 0.5 to 0.9375 s every 1/16 s) |
 | refinement | the 3D mesh (the 1D error is negligible: 2.5 mm cells on a 6 m wavelength); the tutorial's wedge is 50 radial cells graded 10:1 to the wall by 100 axial |
+| physiological amplitude | alpha = 6 with an incident wave of 5 kPa (0.12 rho c0^2, where the 1D equations are nonlinear: 6 to 11 % from the scaled linear solution), the first second from rest, on the nonlinear 1D equations: no closed form; numerical reference from `physiological.py` (100 x 200 wedge, BDF 4 and coupling order 4 at dt = 0.25 ms, kExact 3 + RK4 vessels on 800 cells), `reference/alpha6_physiological_{ports,profiles}.csv`, labelled numerical; the 50 x 100 wedge differs from it by 6e-6 at the ports and 8e-4 on the profile (`physiological.md`) |
 
 ## 1c. The open-ended pipe resonator (specification)
 
