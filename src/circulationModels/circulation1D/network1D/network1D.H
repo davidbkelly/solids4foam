@@ -245,6 +245,9 @@ public:
         //- Pressure at a port at the current time [Pa]
         scalar portPressure(const word& name) const;
 
+        //- Dynamic pressure rho U^2/2 at a port's vessel end [Pa]
+        scalar portDynamicPressure(const word& name) const;
+
         //- Flow of a port's forcing at the current time [m3/s]
         scalar portFlow(const word& name) const;
 

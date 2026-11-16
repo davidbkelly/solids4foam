@@ -99,6 +99,36 @@ ports, the order in dt at physiological amplitude, and the compliant segment
 with solids4foam FSI (silicone wall, E = 1.2 MPa, h = 0.34 mm, as the in
 vitro tube).
 
+## Static against total pressure at the ports
+
+The coupler imposes the static pressure of the vessel end on the patch by
+default; `coupling { pressure total; kineticEnergy mean; }` makes the total
+pressure continuous instead, `p = P1D + rho U1D^2/2 - pdyn3D` with U1D the
+velocity of the vessel's boundary state and pdyn3D the patch's dynamic
+pressure from the sampled flux: `mean` (rho U3D^2/2 of the mean normal
+velocity), `area` (the area average of the local dynamic pressure) or
+`flux` (the energy-flux form rho <u^3>/(2 <u>), which conserves the
+mechanical energy flux but is singular at flow reversal, where <u^3> stays
+finite as <u> passes through zero: in this case it spikes to 475 Pa, 10 %
+of the pulse, twice per cycle). The `inertance` node has the same choice
+with the mean velocities (`pressure total`). `makeCases.py --restart
+--pressure total --kineticEnergy mean|area|flux` writes
+`rigid3D_total_<form>` and `stubsInertance_total`; `results.md` compares
+them with the static runs over the last cycle:
+
+| site | total (mean) vs static: RMS dP / pulse, max dP / pulse, RMS dQ / peak Q | area | 1D limit, total vs static |
+|---|---|---|---|
+| AorticArchII | 6.0e-4 / 1.9e-3 / 8.5e-4 | 6.1e-4 / 1.9e-3 / 8.8e-4 | 6.3e-4 / 2.1e-3 / 1.0e-3 |
+| ThoracicAortaII (3D mid-plane) | 2.9e-3 / 8.9e-3 / 1.6e-3 | 3.3e-3 / 9.4e-3 / 1.6e-3 | 5.5e-4 / 1.6e-3 / 1.8e-3 |
+| RIliacFemoralII | 1.3e-3 / 3.9e-3 / 2.0e-3 | 1.3e-3 / 4.0e-3 / 2.1e-3 | 1.4e-3 / 4.7e-3 / 2.4e-3 |
+
+At physiological amplitude in a vessel of this size the choice moves the
+network by 0.06-0.2 % of the pulse (RMS) and the 3D segment's own pressure
+by 0.3 % (42 Pa at peak flow, where rho U^2/2 = 75 Pa at the stub ends);
+the mean and area forms agree to 5 % of that. The coupled run with total
+pressure follows the total-pressure inertance limit as closely as the
+static one follows the static limit.
+
 ## Order in time
 
 `../orderStudy.py --case thoracicAorta37` runs the coupled case from rest

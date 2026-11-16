@@ -225,6 +225,8 @@ Foam::circulation1DCoupler::circulation1DCoupler
     mesh_(mesh),
     scheme_(scheme::implicitScheme),
     order_(1),
+    totalPressure_(false),
+    kineticEnergy_("mean"),
     maxPressure_(1e8),
     historyDt_(0.0),
     historyDepth_(0),
@@ -275,6 +277,31 @@ Foam::circulation1DCoupler::circulation1DCoupler
     }
 
     maxPressure_ = cd.getOrDefault<scalar>("maxPressure", 1e8);
+
+    {
+        const word pr = cd.getOrDefault<word>("pressure", "static");
+        if (pr == "total")
+        {
+            totalPressure_ = true;
+            kineticEnergy_ = cd.getOrDefault<word>("kineticEnergy", "mean");
+            if
+            (
+                kineticEnergy_ != "mean" && kineticEnergy_ != "area"
+             && kineticEnergy_ != "flux"
+            )
+            {
+                FatalIOErrorInFunction(cd)
+                    << "kineticEnergy must be mean, area or flux, not '"
+                    << kineticEnergy_ << "'" << exit(FatalIOError);
+            }
+        }
+        else if (pr != "static")
+        {
+            FatalIOErrorInFunction(cd)
+                << "pressure must be static or total, not '" << pr << "'"
+                << exit(FatalIOError);
+        }
+    }
 
     // The CFD time scheme should be at least as accurate as the coupling
     {
@@ -387,6 +414,7 @@ Foam::circulation1DCoupler::circulation1DCoupler
         p.stepStartQ = 0;
         p.history = 0.0;
         p.P = 0;
+        p.dyn3D = 0;
         ports_.append(p);
     }
 
@@ -464,7 +492,7 @@ Foam::circulation1DCoupler::circulation1DCoupler
     // Pressure before the first exchange: the initial state with no flow
     for (portData& p : ports_)
     {
-        p.P = network_().portPressure(p.name);
+        p.P = imposedPressure(p);
     }
 
     // Resume from the checkpoint of the start time, if there is one
@@ -505,6 +533,9 @@ Foam::circulation1DCoupler::circulation1DCoupler
         log_() << nl << "# SI: s, m3/s, Pa" << nl;
 
         Info<< type() << ": " << sch << " coupling, order " << order_
+            << ", " << (totalPressure_ ? "total" : "static")
+            << " pressure continuity"
+            << (totalPressure_ ? " (kineticEnergy " + kineticEnergy_ + ")" : "")
             << ", ports:";
         for (const portData& p : ports_)
         {
@@ -701,7 +732,7 @@ void Foam::circulation1DCoupler::restore()
         {
             p.history[i] = h[i];
         }
-        p.P = network_().portPressure(p.name);
+        p.P = imposedPressure(p);
     }
 
     Info<< type() << ": resumed from " << cp.objectRelPath() << " at t = "
@@ -851,7 +882,7 @@ void Foam::circulation1DCoupler::advance(const Time& runTime)
 
     for (portData& p : ports_)
     {
-        p.P = network_().portPressure(p.name);
+        p.P = imposedPressure(p);
     }
 
     // Divergence guard: stop at a clear threshold with advice, rather than
@@ -971,14 +1002,54 @@ void Foam::circulation1DCoupler::sampleAndAdvance(const fvMesh& mesh)
     // All ranks take part in the reductions, including those without faces
     for (portData& p : ports_)
     {
-        const scalar leaving =
-            p.flowScale*gSum(phi.boundaryField()[p.patchID]);
+        const scalarField& phip = phi.boundaryField()[p.patchID];
+        const scalar leaving = p.flowScale*gSum(phip);
         p.Q = p.inlet ? -leaving : leaving;
+
+        if (totalPressure_)
+        {
+            // The patch's dynamic pressure from the sampled flux: of the
+            // mean normal velocity Q/A3D, the area average of the local
+            // one, or the energy-flux form <u_n^3>/(2 <u_n>) (singular where
+            // the mean flow vanishes; the mean form while |Q| is at
+            // round-off)
+            const scalarField& magSf = mesh.magSf().boundaryField()[p.patchID];
+            const scalarField un(phip/magSf);
+            const scalar A3D = gSum(magSf);
+            const scalar Qp = gSum(phip);
+            const scalar rho = network_().rho();
+            if (kineticEnergy_ == "area")
+            {
+                p.dyn3D = 0.5*rho*gSum(sqr(un)*magSf)/A3D;
+            }
+            else if (kineticEnergy_ == "flux" && mag(Qp) > SMALL*A3D)
+            {
+                p.dyn3D = 0.5*rho*gSum(pow3(un)*magSf)/Qp;
+            }
+            else
+            {
+                p.dyn3D = 0.5*rho*sqr(Qp/A3D);
+            }
+        }
     }
 
     lastConsumedFluxEvent_ = phi.eventNo();
 
     advance(runTime);
+}
+
+
+Foam::scalar Foam::circulation1DCoupler::imposedPressure
+(
+    const portData& p
+) const
+{
+    const scalar P = network_().portPressure(p.name);
+
+    return
+        totalPressure_
+      ? P + network_().portDynamicPressure(p.name) - p.dyn3D
+      : P;
 }
 
 

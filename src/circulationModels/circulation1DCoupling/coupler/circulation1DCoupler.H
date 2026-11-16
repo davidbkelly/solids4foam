@@ -33,11 +33,41 @@ Description
         {
             scheme      implicit;   // explicit | implicit
             order       2;          // 1..4: degree of the forcing + 1
+            pressure    static;     // optional: static | total
             maxPressure 1e8;        // optional [Pa]
             seed        zero;       // optional, as for circulationCoupler
         }
 
     The density is the network's (fluid { rho ...; }); the CFD solves p/rho.
+
+    "pressure static" (the default) imposes the vessel end's pressure P1D on
+    the patch. "pressure total" makes the total pressure continuous: the
+    patch gets the uniform value
+
+        p = P1D + rho U1D^2/2 - pdyn3D
+
+    with U1D = Q/A1D the velocity of the vessel's boundary state (the 1D
+    model's own total pressure, as at its junctions; zero dynamic part for a
+    linearised vessel) and pdyn3D the dynamic pressure of the patch, from
+    the flux the coupling is sampling, by "kineticEnergy":
+
+        mean   rho U3D^2/2, U3D = Q/A3D the mean normal velocity of the
+               patch (Q the patch flux, A3D its area): Bernoulli with the
+               mean velocities, the usual "mean total pressure" (default)
+        area   rho <u_n^2>/2, the area average of the dynamic pressure of
+               the normal velocity u_n = phi/|Sf| (rho U3D^2/2 times the
+               momentum-flux coefficient: 4/3 for Poiseuille flow)
+        flux   rho <u_n^3>/(2 <u_n>), the energy-flux form (rho U3D^2/2
+               times the kinetic-energy coefficient alpha3D = <u_n^3>
+               A3D^2/Q^3: 2 for Poiseuille flow), which conserves the
+               mechanical energy flux across the interface but is singular
+               where the mean flow vanishes with a non-uniform profile
+               (flow reversal): <u_n^3> stays finite and the term grows
+               as 1/Q
+
+    Both sides are evaluated from the flux the coupling is exchanging, so
+    the condition is iterated with it. The start-up summary states the
+    choice.
 
     The network sees each port's flow over a step [t0, t1] as a polynomial in
     alpha = (t - t0)/(t1 - t0), through samples of the flow:
@@ -148,6 +178,12 @@ private:
         scheme scheme_;
         label order_;
 
+        //- Continuity of the total pressure instead of the static one
+        bool totalPressure_;
+
+        //- The patch's dynamic pressure for it: mean, area or flux
+        word kineticEnergy_;
+
         //- Pressure at a port beyond which the coupling is taken to have
         //  diverged [Pa]
         scalar maxPressure_;
@@ -165,6 +201,8 @@ private:
             scalar stepStartQ;             //!< accepted flow at the step start
             FixedList<scalar, 3> history;  //!< earlier flows, most recent first
             scalar P;                      //!< pressure to impose [Pa]
+            scalar dyn3D;                  //!< alpha3D rho U3D^2/2 of the
+                                           //!< sampled flux [Pa]
         };
 
         List<portData> ports_;
@@ -195,6 +233,10 @@ private:
 
 
     // Private Member Functions
+
+        //- The pressure to impose on a port's patch from the network's
+        //  current state: static, or total minus the patch's dynamic part
+        scalar imposedPressure(const portData& p) const;
 
         void beginTimeIndex(const label timeIndex);
 

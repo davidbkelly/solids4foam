@@ -272,9 +272,37 @@ pressure, 4/3 of the mean form for Poiseuille flow) or `flux` (the
 energy-flux form rho <u_n^3>/(2 <u_n>), 2 times the mean form for
 Poiseuille flow, which conserves the mechanical energy flux across the
 interface). The 1D limit (the `inertance` node) has its own
-`pressure total` with the mean velocities. Runs of the tutorial
-(restart from the periodic state, two cycles, dt = 1 ms): results below
-as they finish.
+`pressure total` with the mean velocities.
+
+**Runs (verified).** The tutorial's coupled run (restart from the periodic
+state, two cycles, dt = 1 ms, implicit order 2) with each form, and the
+inertance limit with total pressure (`makeCases.py --restart --pressure
+total --kineticEnergy mean|area|flux`; `results.md`). Differences of the
+total-pressure runs from the static one over the last cycle, relative to
+the pulse at the site (4.5 to 6.2 kPa) and the peak flow:
+
+| site | mean: RMS dP / max dP / RMS dQ | area | flux | 1D inertance limit, total vs static |
+|---|---|---|---|---|
+| aortic arch II | 6.0e-4 / 1.9e-3 / 8.5e-4 | 6.1e-4 / 1.9e-3 / 8.8e-4 | 6.3e-4 / 2.1e-3 / 1.0e-3 | 6.3e-4 / 2.1e-3 / 1.0e-3 |
+| thoracic aorta II (3D mid-plane) | 2.9e-3 / 8.9e-3 / 1.6e-3 | 3.3e-3 / 9.4e-3 / 1.6e-3 | 5.7e-3 / 1.0e-1 / 1.8e-3 | 5.5e-4 / 1.6e-3 / 1.8e-3 |
+| right iliac-femoral II | 1.3e-3 / 3.9e-3 / 2.0e-3 | 1.3e-3 / 4.0e-3 / 2.1e-3 | 1.5e-3 / 4.3e-3 / 2.4e-3 | 1.4e-3 / 4.7e-3 / 2.4e-3 |
+
+In pascals at the 3D mid-plane: the mean form lowers the pressure by
+42 Pa at peak flow (120.8 ml/s, U = 0.38 m/s: rho U^2/2 = 75 Pa at the
+stub ends, of which the two ports' corrections leave this net), RMS 14 Pa;
+the area form 45 Pa; the flux form 49 Pa at peak flow and the 475 Pa
+spike at reversal. At the arch the three forms are within 8 to 9 Pa of
+the static run (RMS 2.7 Pa, 0.06 % of the pulse), at the iliac within
+24 to 26 Pa. So at physiological amplitude in a vessel of this size the
+choice of static or total pressure at the ports moves the network by
+0.06 to 0.2 % of the pulse (RMS) and the 3D segment's own pressure by
+0.3 % (RMS, 0.9 % at peak flow); the mean and area forms are
+interchangeable to 5 % of that, and the energy-flux form is not usable
+with reversal. The coupled runs with total pressure sit as close to the
+total-pressure inertance limit as the static one to the static limit
+(1.0e-3 against 2.0e-3 at the arch, 2.6e-3 against 4.7e-3 at the iliac,
+RMS dP / pulse): the limit shifts with the condition and the 3D segment
+follows it.
 
 **Finding on the energy-flux form (verified).** It is singular at flow
 reversal: `<u_n^3>` stays finite while `<u_n>` passes through zero, so the

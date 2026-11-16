@@ -119,6 +119,10 @@ public:
         //- Pressure at the vessel end, boundary state up to date [Pa]
         scalar pressure() const;
 
+        //- Dynamic pressure rho U^2/2 at the vessel end, U = Q/A of the
+        //  boundary state (0 for a linearised vessel) [Pa]
+        scalar dynamicPressure() const;
+
         virtual void setBoundary(const scalar t);
 
         virtual wordList columns() const;

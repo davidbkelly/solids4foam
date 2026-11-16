@@ -99,17 +99,19 @@ def main():
     for site in SITES:
         d = {}
         d["original"] = cycle(*original(site))
-        for case in ("stubs1D", "stubsInertance"):
+        for case in ("stubs1D", "stubsInertance", "stubsInertance_total"):
             name = site
-            if site == "ThoracicAortaII" and case == "stubsInertance":
+            if site == "ThoracicAortaII" and case.startswith("stubsInertance"):
                 name = "portIn"
             r = probe(case, name)
             if r is not None:
                 d[case] = cycle(*r)
-        r = zone("rigid3D", "mid") if site == "ThoracicAortaII" \
-            else coupled_probe("rigid3D", site)
-        if r is not None:
-            d["rigid3D"] = cycle(*r)
+        for case in ("rigid3D", "rigid3D_total_mean", "rigid3D_total_area",
+                     "rigid3D_total_flux"):
+            r = zone(case, "mid") if site == "ThoracicAortaII" \
+                else coupled_probe(case, site)
+            if r is not None:
+                d[case] = cycle(*r)
         tm, Pm, Qm = measured(site)
         d["measured"] = (tm, Pm, Qm)
         data[site] = d
@@ -127,12 +129,23 @@ def main():
                 f"| {run} | {P.max()/1e3:.2f} | {P.min()/1e3:.2f} | {Q.max()*1e6:.1f} "
                 f"| {rms(P - Po)/pulse:.2e} | {rms(Q - Qo)/Q_o.max():.2e} "
                 f"| {rms(P - Pm_)/(Pm.max() - Pm.min()):.2e} | {rms(Q - Qm_)/Qm.max():.2e} |")
-        if "rigid3D" in d and "stubsInertance" in d:
-            t, P, Q = d["rigid3D"]
-            ti, Pi, Qi = d["stubsInertance"]
-            lines.append(f"\nrigid3D against the inertance limit: RMS dP / pulse "
-                         f"{rms(P - np.interp(t, ti, Pi))/pulse:.2e}, RMS dQ / peak Q "
-                         f"{rms(Q - np.interp(t, ti, Qi))/Q_o.max():.2e}")
+        for sfx, isfx in (("", ""), ("_total_mean", "_total"), ("_total_area", "_total"),
+                          ("_total_flux", "_total")):
+            if "rigid3D" + sfx in d and "stubsInertance" + isfx in d:
+                t, P, Q = d["rigid3D" + sfx]
+                ti, Pi, Qi = d["stubsInertance" + isfx]
+                lines.append(f"\nrigid3D{sfx} against the inertance limit{isfx.replace('_', ' (') + ')' if isfx else ''}: RMS dP / pulse "
+                             f"{rms(P - np.interp(t, ti, Pi))/pulse:.2e}, RMS dQ / peak Q "
+                             f"{rms(Q - np.interp(t, ti, Qi))/Q_o.max():.2e}")
+        for a, b in (("rigid3D_total_mean", "rigid3D"), ("rigid3D_total_area", "rigid3D"),
+                     ("rigid3D_total_flux", "rigid3D"), ("stubsInertance_total", "stubsInertance")):
+            if a in d and b in d:
+                t, P, Q = d[a]
+                tb, Pb, Qb = d[b]
+                lines.append(f"\n{a} against {b}: RMS dP / pulse "
+                             f"{rms(P - np.interp(t, tb, Pb))/pulse:.2e}, RMS dQ / peak Q "
+                             f"{rms(Q - np.interp(t, tb, Qb))/Q_o.max():.2e}, "
+                             f"max dP / pulse {np.abs(P - np.interp(t, tb, Pb)).max()/pulse:.2e}")
         lines.append("")
     # cost
     log = RUNS/"rigid3D"/"log.pimpleFoam"
@@ -168,6 +181,8 @@ def figure(data):
     fig, axs = plt.subplots(2, len(data), figsize=(4.4*len(data), 6.2), squeeze=False)
     for j, (site, d) in enumerate(data.items()):
         for run, (t, P, Q) in d.items():
+            if run not in style:
+                continue                    # the total-pressure variants
             c, ls, label = style[run]
             axs[0, j].plot(t, P/1e3, color=c, ls=ls, lw=1.6 if run == "rigid3D" else 1.1, label=label)
             axs[1, j].plot(t, Q*1e6, color=c, ls=ls, lw=1.6 if run == "rigid3D" else 1.1)

@@ -71,8 +71,11 @@ def vessel_line(name, x0, x1):
             f"wallThickness {H_WALL}; }}")
 
 
-def properties(kind, dt3d=None):
-    """The network dictionary for kind in stubs1D, inertance, coupled"""
+def properties(kind, dt3d=None, pressure="static", kineticEnergy="mean"):
+    """The network dictionary for kind in stubs1D, inertance, coupled;
+    pressure: static or total continuity at the 3D segment's ends (the
+    inertance node's "pressure" entry, the coupler's, with its kineticEnergy
+    form of the patch's dynamic pressure: mean, area or flux)"""
     t = (SRC/"constant"/"circulation1DProperties").read_text()
     old = re.search(r"^    s17 +\{[^\n]*\}\n", t, re.M)
     if not old:
@@ -91,7 +94,7 @@ def properties(kind, dt3d=None):
         # A cone's inertance rho int dz/A is rho l/(pi R0 R1): radius sqrt(R0 R1)
         r = math.sqrt(radius(L_STUB)*radius(L_SEG - L_STUB))
         extra = (f"    seg3D {{ type inertance; connections (s17a.out s17b.in); "
-                 f"length {L_3D:g}; radius {r:.6g}; }}\n")
+                 f"length {L_3D:g}; radius {r:.6g}; pressure {pressure}; }}\n")
     else:
         extra = ("    to3D   { type coupledFlow; connection s17a.out; patch inlet; }\n"
                  "    from3D { type coupledFlow; connection s17b.in; patch outlet; }\n")
@@ -109,6 +112,8 @@ coupling
 {{
     scheme      implicit;
     order       2;
+    pressure    {pressure};
+    kineticEnergy {kineticEnergy};
     seedDeltaT  {dt3d:g};
     seed        {{ to3D (SEEDQ); from3D (SEEDQ); }}   // set by --restart
 }}
@@ -351,13 +356,17 @@ def make_stubs1d(force):
     print("stubs1D: 18 cycles from rest")
 
 
-def make_restart_runs(dt, force):
+def make_restart_runs(dt, force, pressure="static", kineticEnergy="mean"):
+    """stubsInertance and rigid3D (static pressure continuity, the tutorial)
+    or stubsInertance_total and rigid3D_total_<kineticEnergy> (total
+    pressure, with the mean, area or flux form of the 3D dynamic pressure)"""
+    sfx = "" if pressure == "static" else f"_{pressure}"
     state = RUNS/"stubs1D"/f"{T_STATE:g}"/"circulation1DState"
     if not state.is_file():
         raise SystemExit(f"no restart state {state}: run stubs1D first")
     q0 = state_flow(state)
     # inertance
-    case = RUNS/"stubsInertance"
+    case = RUNS/f"stubsInertance{sfx}"
     if not (case.exists() and finished_1d(case) and not force):
         if case.exists():
             shutil.rmtree(case)
@@ -365,27 +374,30 @@ def make_restart_runs(dt, force):
         (case/"system").mkdir()
         (case/f"{T_STATE:g}").mkdir()
         shutil.copy(state, case/f"{T_STATE:g}"/"circulation1DState")
-        (case/"constant"/"circulation1DProperties").write_text(properties("inertance"))
+        (case/"constant"/"circulation1DProperties").write_text(
+            properties("inertance", pressure=pressure))
         (case/"system"/"controlDict").write_text(
             control_1d(T_STATE, T_STATE + N_CYCLES*T_CYCLE))
-        print(f"stubsInertance: restart at {T_STATE} s, {N_CYCLES} cycles")
+        print(f"{case.name}: restart at {T_STATE} s, {N_CYCLES} cycles")
     # coupled
-    case = RUNS/"rigid3D"
+    case = RUNS/(f"rigid3D{sfx}" + (f"_{kineticEnergy}" if sfx else ""))
     log = case/"log.pimpleFoam"
     if case.exists() and log.is_file() and "\nEnd\n" in log.read_text()[-2000:] \
             and not force:
-        print("rigid3D: finished, kept")
+        print(f"{case.name}: finished, kept")
         return
     if case.exists():
         shutil.rmtree(case)
-    write_coupled(case, dt, T_STATE, T_STATE + N_CYCLES*T_CYCLE, q0, state)
+    write_coupled(case, dt, T_STATE, T_STATE + N_CYCLES*T_CYCLE, q0, state,
+                  pressure=pressure, kineticEnergy=kineticEnergy)
     r_mean = math.sqrt(radius(L_STUB)*radius(L_SEG - L_STUB))
-    print(f"rigid3D: restart at {T_STATE} s with Q = {q0*1e6:.2f} ml/s "
+    print(f"{case.name}: restart at {T_STATE} s with Q = {q0*1e6:.2f} ml/s "
           f"(plug {q0/(math.pi*r_mean**2):.3f} m/s), dt = {dt:g} s, "
           f"{N_CYCLES} cycles, {int(round(L_3D/DX))} axial cells")
 
 
-def write_coupled(case, dt, start, end, q0=0.0, state=None):
+def write_coupled(case, dt, start, end, q0=0.0, state=None,
+                  pressure="static", kineticEnergy="mean"):
     """The coupled pimpleFoam case from start to end: restarted from a
     circulation1DState file with the 3D as plug flow at q0 (the tutorial), or
     from rest (state None, the order study)"""
@@ -393,7 +405,8 @@ def write_coupled(case, dt, start, end, q0=0.0, state=None):
         (case/d).mkdir(parents=True)
     if state is not None:
         shutil.copy(state, case/f"{start:g}"/"circulation1DState")
-    props = properties("coupled", dt).replace("SEEDQ", f"{q0:.9g}")
+    props = properties("coupled", dt, pressure, kineticEnergy).replace(
+        "SEEDQ", f"{q0:.9g}")
     (case/"constant"/"circulation1DProperties").write_text(props)
     (case/"constant"/"transportProperties").write_text(transport())
     (case/"constant"/"turbulenceProperties").write_text(turbulence())
@@ -416,10 +429,15 @@ def main():
                     help="write the runs that restart from stubs1D's state")
     ap.add_argument("--dt", type=float, default=1e-3, help="3D time step")
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--pressure", default="static", choices=["static", "total"],
+                    help="pressure continuity at the segment's ends (--restart)")
+    ap.add_argument("--kineticEnergy", default="mean",
+                    choices=["mean", "area", "flux"],
+                    help="the 3D dynamic pressure of --pressure total")
     args = ap.parse_args()
     RUNS.mkdir(exist_ok=True)
     if args.restart:
-        make_restart_runs(args.dt, args.force)
+        make_restart_runs(args.dt, args.force, args.pressure, args.kineticEnergy)
     else:
         make_stubs1d(args.force)
 

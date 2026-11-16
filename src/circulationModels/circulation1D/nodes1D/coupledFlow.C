@@ -89,6 +89,21 @@ Foam::scalar Foam::coupledFlow::pressure() const
 }
 
 
+Foam::scalar Foam::coupledFlow::dynamicPressure() const
+{
+    const vessel1D& v = vessel(0);
+    const tubeLaw1D& law = v.endLaw(end(0));
+    const scalar A = v.boundaryArea(end(0));
+
+    return node1D::dynamicPressure
+    (
+        law,
+        v.rho(),
+        v.boundaryFlow(end(0))/law.velocityArea(A)
+    );
+}
+
+
 void Foam::coupledFlow::setBoundary(const scalar t)
 {
     // Q along the vessel; the flow into the node is s Q
