@@ -116,6 +116,30 @@ second), for other codes; `spaceStudy.py` measures the wedge's order in
 space against them, and `physiological.py` makes a numerical reference at
 5 kPa, where the 1D equations are nonlinear.
 
+## Order in space
+
+`spaceStudy.py run [--alpha 6]` (`space_alpha6.md`, `plots/space_alpha6.png`;
+also alpha 3 and 12 on the two cheaper levels): the wedge at 25 x 50,
+50 x 100 and 100 x 200 over the first second from rest, BDF 4 and coupling
+order 4 at dt = 0.5 ms (the time error is negligible: dt = 0.25 and
+0.125 ms give the same errors to three digits), linearised vessels at
+fourth order, against the exact transient of the equal-area pipe; ports
+(RMS / RMS of the exact) and the mid-length profile (max over eight
+instants):
+
+| alpha | mesh | ports | order | profile | order | PIMPLE it./step (steps at the cap) |
+|---|---|---|---|---|---|---|
+| 3 | 25 x 50 / 50 x 100 | 3.43e-5 / 1.35e-5 | 1.35 | 7.68e-3 / 2.18e-3 | 1.82 | 15.6 / 42.1 (240) |
+| 6 | 25 x 50 / 50 x 100 / 100 x 200 | 2.47e-5 / 4.61e-6 / 6.49e-6 | 2.42, -0.49 | 5.32e-3 / 1.17e-3 / 1.36e-3 | 2.19, -0.23 | 8.9 / 18.6 / 45.4 (1558) |
+| 12 | 25 x 50 / 50 x 100 | 2.48e-5 / 5.51e-6 | 2.17 | 1.10e-2 / 2.50e-3 | 2.14 | 6.2 / 10.2 |
+
+Second order between the two coarser meshes at alpha = 6 and 12; the
+100 x 200 mesh and the 50 x 100 mesh at alpha = 3 are limited by the
+outer loop, which runs to its 50-iteration cap on most steps (the
+pressure residual stalls near 1e-7): the achievable error of the
+segregated algorithm without momentum predictor on this wall-graded mesh,
+about 5e-6 of the signal, not the mesh's.
+
 ## Order in time
 
 `../orderStudy.py --case womersleySegment` repeats the alpha = 6 run from

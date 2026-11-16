@@ -232,28 +232,35 @@ velocity profile (max over eight instants of max |u - u_exact| / max
 |u_exact|). The time error is negligible: the 25 x 50 level at dt = 0.25
 and 0.125 ms gives the same errors to three digits (verified).
 
-Results (the 100 x 200 level at alpha = 6 is still running; `space_alpha3.md`,
-`space_alpha12.md` verified):
+Results (verified; `space_alpha{3,6,12}.md`, `plots/space_alpha*.png`):
 
-| alpha | mesh | ports (P, Q) | order | mid-length profile | order | PIMPLE it./step | wall time |
+| alpha | mesh | ports (P, Q) | order | mid-length profile | order | PIMPLE it./step (steps at the cap of 50) | wall time |
 |---|---|---|---|---|---|---|---|
-| 3 | 25 x 50 | 3.43e-5 | | 7.68e-3 | | 15.6 | 139 s |
-| 3 | 50 x 100 | 1.35e-5 | 1.35 | 2.18e-3 | 1.82 | 42.1 (cap of 50 hit on 240 of 2000 steps) | 1531 s |
-| 6 | 25 x 50 | 2.29e-5 | | (to follow) | | 8.9 | 78 s |
-| 6 | 50 x 100 | 4.28e-6 | 2.42 | | | 18.6 | 681 s |
-| 12 | 25 x 50 | 2.48e-5 | | 1.10e-2 | | 6.2 | 57 s |
+| 3 | 25 x 50 | 3.43e-5 | | 7.68e-3 | | 15.6 (4 of 2000) | 139 s |
+| 3 | 50 x 100 | 1.35e-5 | 1.35 | 2.18e-3 | 1.82 | 42.1 (240) | 1531 s |
+| 6 | 25 x 50 | 2.47e-5 | | 5.32e-3 | | 8.9 (20) | 78 s |
+| 6 | 50 x 100 | 4.61e-6 | 2.42 | 1.17e-3 | 2.19 | 18.6 (34) | 681 s |
+| 6 | 100 x 200 | 6.49e-6 | -0.49 | 1.36e-3 | -0.23 | 45.4 (1558) | 12276 s |
+| 12 | 25 x 50 | 2.48e-5 | | 1.10e-2 | | 6.2 (52) | 57 s |
 | 12 | 50 x 100 | 5.51e-6 | 2.17 | 2.50e-3 | 2.14 | 10.2 | 391 s |
 
-At alpha = 12 and 6 the ports converge at 2.2 to 2.4 and the profile at
-2.1, second order as the schemes are. At alpha = 3 the finer mesh's
-outer loop stalls: 240 of its 2000 steps run to the 50-iteration cap
-(the pressure residual stays near 4e-7 instead of reaching 1e-10, as the
-report noted for this viscosity), and the port order drops to 1.35 with
-the profile at 1.8; so at alpha = 3 the achievable error on the 50 x 100
-mesh (1.35e-5) is limited by the segregated algorithm's convergence, not
-by the mesh. Against the pipe of radius R instead of the equal-area pipe
-the alpha = 6 port errors are 5.9e-5 and 8.0e-5, i.e. no convergence,
-which is how the wedge-area effect was found.
+Between the 25 x 50 and 50 x 100 meshes the ports converge at 2.2 to 2.4
+and the profile at 2.1 to 2.2 at alpha = 6 and 12: second order, as the
+schemes are. The third level at alpha = 6 does not continue: its outer
+loop runs to the 50-iteration cap on 1558 of its 2000 steps (45
+iterations per step; the pressure residual stalls near 1e-7 instead of
+reaching 1e-10) and the error rises to 6.5e-6. The same stall caps alpha
+= 3 on the 50 x 100 mesh (240 steps at the cap, order 1.35). So the
+achievable error of this case is limited by the convergence of the
+segregated algorithm without momentum predictor on a wall-graded mesh
+(the report's note on alpha = 3), not by the mesh, from about 5e-6 of
+the signal on; the second order of the 3D discretisation is established
+on the two coarser levels at the two higher Womersley numbers. A
+referee should see the stall stated as such; curing it (a momentum
+predictor with relaxation, or a coupled solver) is outside this item.
+Against the pipe of radius R instead of the equal-area pipe the alpha =
+6 port errors are 5.9e-5 and 8.0e-5 on the first two levels, i.e. no
+convergence, which is how the wedge-area effect was found.
 
 ### 4. The floor in the network case (B6): traced (verified)
 
