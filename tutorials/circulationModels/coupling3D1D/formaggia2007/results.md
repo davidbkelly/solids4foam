@@ -2,6 +2,8 @@
 
 3D wave speed of full3D (half-peak arrival at z = 1.25, 2.5, 3.75, 5, 6.25, 7.5 cm): 4.917 m/s
 
+3D wave speed of full3D_closed (half-peak arrival at z = 1.25, 2.5, 3.75, 5, 6.25, 7.5, 10, 12.5 cm): 4.891 m/s
+
 3D wave speed of full3D_lib2 (half-peak arrival at z = 1.25, 2.5, 3.75, 5, 6.25, 7.5 cm): 4.912 m/s
 
 1D wave speed, same measure (1D alone): 5.415 m/s
@@ -36,20 +38,20 @@ Radial wall displacement at z = 2.5 cm: peak 150.32 um (full3D), 150.18 um (coup
 
 Radial wall displacement at z = 2.5 cm: peak 150.32 um (full3D), 150.16 um (coupled_c4p92); RMS difference 3.315 um
 
-## coupled_c4p92_closed_20ms: 1D c0 = 4.92 m/s (against full3D)
+## coupled_c4p92_closed: 1D c0 = 4.92 m/s (against full3D_closed)
 
 | z [cm] | where | peak P full3D / coupled / 1D alone [Pa] | arrival full3D / coupled / 1D alone [ms] | RMS(P coupled - full3D) / pulse | RMS(Q coupled - full3D) / peak Q |
 |---|---|---|---|---|---|
-| 1.25 | 3D | 1388 / 1352 / 1338 | 2.74 / 2.71 / 2.30 | 3.13e-02 | 4.92e-02 |
-| 2.5 | 3D | 1288 / 1303 / 1332 | 5.26 / 5.19 / 4.60 | 3.15e-02 | 9.24e-02 |
-| 3.75 | 3D | 1133 / 1169 / 1330 | 7.90 / 7.93 / 6.91 | 4.81e-02 | 8.25e-02 |
-| 5 | port | 1093 / 1104 / 1328 | 10.42 / 10.27 / 9.22 | 5.10e-02 | 1.19e-01 |
-| 6.25 | 1D | 1053 / 1096 / 1327 | 12.96 / 12.72 / 11.53 | 7.55e-02 | 1.54e-01 |
-| 7.5 | 1D | 993 / 1091 / 1325 | 15.41 / 15.18 / 13.84 | 6.48e-02 | 2.10e-01 |
-| 10 | 1D | 486 / 632 / 1322 | nan / nan / 18.46 | 2.09e-02 | 1.96e-01 |
-| 12.5 | 1D | 38 / 38 / 0 | nan / nan / nan | 2.12e-02 | 4.58e-01 |
+| 1.25 | 3D | 1352 / 1352 / 1338 | 2.71 / 2.71 / 2.30 | 9.82e-02 | 6.04e-02 |
+| 2.5 | 3D | 1271 / 1303 / 1332 | 5.26 / 5.19 / 4.60 | 8.09e-02 | 8.71e-02 |
+| 3.75 | 3D | 1135 / 1169 / 1330 | 7.81 / 7.93 / 6.91 | 7.51e-02 | 1.34e-01 |
+| 5 | port | 1077 / 1124 / 1328 | 10.42 / 10.27 / 9.22 | 9.37e-02 | 1.43e-01 |
+| 6.25 | 1D | 1046 / 1096 / 1327 | 12.94 / 12.72 / 11.53 | 9.03e-02 | 1.83e-01 |
+| 7.5 | 1D | 985 / 1091 / 1325 | 15.40 / 15.18 / 13.84 | 1.04e-01 | 2.06e-01 |
+| 10 | 1D | 902 / 1083 / 1322 | 20.64 / 20.09 / 18.46 | 1.02e-01 | 2.19e-01 |
+| 12.5 | 1D | 974 / 1077 / 0 | 25.70 / 24.99 / nan | 9.33e-02 | 1.99e-01 |
 
-Radial wall displacement at z = 2.5 cm: peak 150.32 um (full3D), 146.76 um (coupled_c4p92_closed_20ms); RMS difference 4.242 um
+Radial wall displacement at z = 2.5 cm: peak 146.89 um (full3D_closed), 146.76 um (coupled_c4p92_closed); RMS difference 12.546 um
 
 ## coupled_c4p92_free: 1D c0 = 4.92 m/s (against full3D)
 

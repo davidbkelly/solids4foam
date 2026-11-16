@@ -450,6 +450,20 @@ interface from 1D into 3D; `analyse.py` compares a `_closed` coupled run
 with `full3D_closed`. Cases written, runs pending (about 30 minutes: the
 coupled run serial, the full tube on 4 ranks).
 
+**(b) Result (verified; 70 ms runs, `results.md`).** The wave returns
+through the interface into the 3D part within 1-2 ms of the closed full
+tube at every section (peaks at z = 1.25, 2.5, 3.75, 5 cm at 59.0 /
+56.4 / 53.5 / 50.1 ms against 58.0 / 56.5 / 54.2 / 51.9 ms) and with the
+1D vessel's amplitude: 844-1124 Pa against the full tube's 475-680 Pa,
+which the thick wall's inertia has dispersed and attenuated on the way
+out and back; the difference is already 20 % on the outgoing wave at
+z = 10 cm (1083 against 902 Pa) before anything has returned. RMS
+difference over 30-70 ms 0.09-0.12 of the pulse. The coupling passes a
+wave from 1D into 3D as it does the other way; the amplitude mismatch is
+the 1D model's, counted twice. (The 20 ms window first tried does not
+reach the return; the cases now default to that end time only with
+`--endTime`.)
+
 **(c) Refinement with the smooth pulse.** Not launched: the estimate is
 above the two-hour limit. Per end condition (clamped, free, spring) the
 coupled run at the tutorial's mesh and dt = 25 us takes 12 minutes serial
