@@ -30,7 +30,9 @@ with R1D0D + R0D3D = rho c0/S (their Eq. 13) and C = l S/(rho c0^2), l = 0.1 cm
 
 Here, in SI and inviscid (their vessel has Poiseuille friction, with a damping
 time of about 3 s; the slip-wall 3D pipe is inviscid anyway), `makeCases.py`
-writes, for each inflow and c0:
+writes, for each inflow (their sine and step, and a third, `smooth`: a
+Gaussian pulse of 15 ms centred at 105 ms, 1e-7 m3/s at its peak, whose
+exact solution is smooth, see "Order in time") and c0:
 
 | run | what |
 | --- | --- |
@@ -52,7 +54,7 @@ delay equations to 1e-9. The open-ended rigid pipe reflects everything,
 reference has no reflection at all.
 
 ```bash
-./Allrun            # 18 1D runs (seconds) + 2 pimpleFoam runs (minutes); results.md, plots/
+./Allrun            # 27 1D runs (seconds) + 3 pimpleFoam runs (minutes); results.md, plots/
 python3 analyse.py --csv     # the exact solutions as CSV in reference/ (for other codes)
 ```
 
@@ -201,3 +203,25 @@ and the kinks at second (Q: 9.2e-6, 2.3e-6, 5.9e-7, 1.5e-7). The time
 orders are therefore as the self-convergence says, and the comparison with
 the exact solution is limited by the discontinuities of the problem posed,
 which no time scheme sees.
+
+**The smooth inflow** (`../orderStudy.py --case dobroserdova2016 --exact
+--inflow smooth`; `orders_smooth_linear.md`, `plots/orders_smooth_linear.png`)
+removes that limit: the Gaussian pulse `1e-7 exp(-(t - 0.105)^2/(2 0.015^2))`
+m3/s is 2e-11 of its peak at t = 0, so the exact solution (the same delay
+equations) is smooth, and every family reaches its order against it down
+to the last step (RMS error / RMS of the signal, Q, dt = 2 to 0.125 ms):
+
+| dt [ms] | Euler | backward | BDF 3 | BDF 4 |
+|---|---|---|---|---|
+| 2 | 1.59e-1 | 1.73e-2 | 1.59e-3 | 1.55e-4 |
+| 1 | 1.55e-1 | 4.16e-3 | 1.94e-4 | 9.02e-6 |
+| 0.5 | 8.14e-2 | 9.26e-4 | 2.20e-5 | 5.25e-7 |
+| 0.25 | 4.12e-2 | 2.31e-4 | 2.74e-6 | 3.31e-8 |
+| 0.125 | 2.07e-2 | 5.77e-5 | 3.44e-7 | 2.53e-9 |
+| orders | 0.04, 0.93, 0.98, 0.99 | 2.06, 2.17, 2.01, 2.00 | 3.03, 3.14, 3.00, 3.00 | 4.11, 4.10, 3.99, 3.71 |
+
+(P the same to two digits.) BDF 4 reaches 2.5e-9 of the signal at
+0.125 ms, where the 1D vessel's own error (kExact 3, RK4 at CFL 0.1 on
+200 cells) and round-off begin to show (3.7 on the last pair). The sine and
+step inflows are kept as the published case; the smooth pulse is the one
+to use for an order test.

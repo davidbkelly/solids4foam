@@ -77,6 +77,8 @@ SUFFIX = ""            # run-name suffix of a --limiter/--timeScheme variant
 LIMITER = None
 TIME_SCHEME = None
 EXACT = False          # --exact: linearised vessels, errors against the exact
+INFLOW = "sine"        # --inflow: the resonator's inflow (sine, step, smooth)
+CYLINDER = False       # --cylinder: the aorta's cone replaced by a cylinder
 
 
 def run_name(family, dt):
@@ -113,7 +115,7 @@ def make(case_name, family, dt, end, force, suffix=""):
     sys.path.pop(0)
     (case_dir/"runs").mkdir(exist_ok=True)
     if case_name == "dobroserdova2016":
-        mc.make_3d("c350", "sine", name=name.replace("order_", "order3D_"),
+        mc.make_3d("c350", INFLOW, name=name.replace("order_", "order3D_"),
                    dt=dt, end=end, force=True)
         (case_dir/"runs"/name.replace("order_", "order3D_")).rename(case)
     elif case_name == "womersleySegment":
@@ -130,6 +132,14 @@ def make(case_name, family, dt, end, force, suffix=""):
              [(r"^(\s+initialPressure\s+)0;", r"\g<1>432.6;"),
               (r"1e-6\*1e6\*\(3\.1199",
                "((arg() < 0.05) ? sqr(sin(pi()*arg()/0.1)) : 1)*(3.1199")])
+        if CYLINDER:
+            # The cone replaced by the cylinder of its geometric-mean radius
+            # (floorStudy.py): the non-orthogonal cone mesh caps BDF 3/4 at
+            # first order in pimpleFoam, the cylinder does not
+            sys.path.insert(0, str(case_dir))
+            import floorStudy
+            sys.path.pop(0)
+            floorStudy.cylinder(case)
     else:
         raise SystemExit(f"unknown case {case_name}")
     f = FAMILIES[family]
@@ -242,7 +252,7 @@ def exact_signals(case_name, t):
     import analyse as an                                    # noqa: E402
     sys.path.pop(0)
     if case_name == "dobroserdova2016":
-        Q, P = an.exact("sine", 3.5, "hard", t, pipeArea=an.A3D, n2=64000)
+        Q, P = an.exact(INFLOW, 3.5, "hard", t, pipeArea=an.A3D, n2=64000)
         return {"to3D.Q": (t, Q), "to3D.P": (t, P)}
     if case_name == "womersleySegment":
         # the circular pipe of the wedge's cross-section (see its README)
@@ -441,7 +451,7 @@ def summary():
 
 
 def main():
-    global SUFFIX, LIMITER, TIME_SCHEME, CFL, EXACT
+    global SUFFIX, LIMITER, TIME_SCHEME, CFL, EXACT, INFLOW, CYLINDER
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--case", choices=list(CASES))
     ap.add_argument("--families", default=",".join(FAMILIES))
@@ -458,9 +468,26 @@ def main():
     ap.add_argument("--cfl", type=float, help=f"1D CFL in place of {CFL}")
     ap.add_argument("--exact", action="store_true",
                     help="linearised vessels; errors against the exact solution")
+    ap.add_argument("--inflow", default="sine", choices=["sine", "step", "smooth"],
+                    help="dobroserdova2016: the inflow (smooth: the Gaussian "
+                    "pulse, whose exact solution is smooth)")
+    ap.add_argument("--cylinder", action="store_true",
+                    help="thoracicAorta37: the cone replaced by a cylinder")
     args = ap.parse_args()
     LIMITER, TIME_SCHEME, EXACT = args.limiter, args.timeScheme, args.exact
     SUFFIX = (f"_{LIMITER}" if LIMITER else "") + (f"_{TIME_SCHEME}" if TIME_SCHEME else "")
+    if args.cylinder:
+        if args.case != "thoracicAorta37":
+            ap.error("--cylinder is for thoracicAorta37")
+        CYLINDER = True
+        SUFFIX += "_cylinder"
+        CASES[args.case]["title"] = "Thoracic aorta II (as a cylinder) in the 37-artery network"
+    if args.inflow != "sine":
+        if args.case != "dobroserdova2016":
+            ap.error("--inflow is for dobroserdova2016")
+        INFLOW = args.inflow
+        SUFFIX += f"_{INFLOW}"
+        CASES[args.case]["title"] = f"Dobroserdova: rigid pipe, {INFLOW} inflow"
     if args.cfl:
         CFL = args.cfl
         SUFFIX += f"_cfl{CFL:g}"

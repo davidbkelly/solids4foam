@@ -33,3 +33,20 @@ Hard coupling, sine, periodic state: |Gamma| = 1 at every c0; with the inlet's o
 | 10.5 | soft (1D + lumped pipe) | 1.346 | 1.466 | 1.8e-02 / 1.8e-01 | 7.0e-02 / 3.2e-01 |
 
 Hard coupling, sine, periodic state: |Gamma| = 1 at every c0; with the inlet's own reflection the interface flow is Qin/|cos(w td) + i (w L/Zc) sin(w td)| in amplitude: 1.042 at 3.5 m/s, 1.011 at 7.0 m/s, 1.005 at 10.5 m/s; the runs start from rest and the undamped resonance of the vessel (about c0/(4 L1D) Hz) persists on top of it.
+
+## smooth inflow
+
+| c0 [m/s] | config | peak Q / peak Qin | peak Q, exact | Q error, RMS / max | P error, RMS / max |
+|---|---|---|---|---|---|
+| 3.5 | reference (10 cm, absorbing) | 1.000 | - | - | - |
+| 3.5 | hard (1D + lumped pipe) | 1.700 | 1.700 | 9.9e-05 / 2.3e-04 | 1.1e-04 / 3.0e-04 |
+| 3.5 | soft (1D + lumped pipe) | 1.007 | 1.007 | 1.2e-05 / 4.6e-05 | 2.3e-05 / 9.3e-05 |
+| 3.5 | hard (1D + pimpleFoam pipe) | 1.698 | 1.698 | 2.0e-03 / 5.3e-03 | 1.7e-03 / 4.8e-03 |
+| 7.0 | reference (10 cm, absorbing) | 1.000 | - | - | - |
+| 7.0 | hard (1D + lumped pipe) | 1.570 | 1.570 | 6.1e-05 / 1.6e-04 | 5.1e-05 / 1.5e-04 |
+| 7.0 | soft (1D + lumped pipe) | 1.119 | 1.119 | 3.8e-06 / 1.8e-05 | 5.0e-06 / 2.3e-05 |
+| 10.5 | reference (10 cm, absorbing) | 1.000 | - | - | - |
+| 10.5 | hard (1D + lumped pipe) | 1.268 | 1.268 | 1.4e-05 / 3.7e-05 | 1.2e-05 / 3.3e-05 |
+| 10.5 | soft (1D + lumped pipe) | 1.086 | 1.086 | 1.3e-06 / 6.2e-06 | 1.6e-06 / 8.0e-06 |
+
+Hard coupling, sine, periodic state: |Gamma| = 1 at every c0; with the inlet's own reflection the interface flow is Qin/|cos(w td) + i (w L/Zc) sin(w td)| in amplitude: 1.042 at 3.5 m/s, 1.011 at 7.0 m/s, 1.005 at 10.5 m/s; the runs start from rest and the undamped resonance of the vessel (about c0/(4 L1D) Hz) persists on top of it.

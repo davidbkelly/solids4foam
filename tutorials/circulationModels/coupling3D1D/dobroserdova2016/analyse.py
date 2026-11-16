@@ -46,6 +46,8 @@ def qin(t, inflow):
     t = np.asarray(t, dtype=float)
     if inflow == "sine":
         return np.where(t >= 0, 1e-7*np.sin(2*np.pi*t/0.3), 0.0)
+    if inflow == "smooth":
+        return np.where(t >= 0, 1e-7*np.exp(-0.5*((t - 0.105)/0.015)**2), 0.0)
     return np.where((t >= 0) & (t <= 0.1), 1e-7, 0.0)
 
 

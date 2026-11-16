@@ -48,6 +48,12 @@ C0S = {"c350": 3.5, "c700": 7.0, "c1050": 10.5}
 INFLOWS = {
     "sine": ("expression", "#{ 1e-7*sin(20.943951023931955*arg()) #}", 1.2, 1e-3),
     "step": ("expression", "#{ (arg() <= 0.1) ? 1e-7 : 0 #}", 0.5, 5e-4),
+    # A smooth variant (not in the paper): a Gaussian pulse of 15 ms centred
+    # at 105 ms (7 sigma from the start: 2e-11 of the peak at t = 0), so
+    # that the exact solution is smooth and the time schemes can show
+    # their orders, which the sine's jumps in dQ/dt hide (see the README)
+    "smooth": ("expression", "#{ 1e-7*exp(-0.5*sqr((arg() - 0.105)/0.015)) #}",
+               0.5, 5e-4),
 }
 LIND = RHO*L3D/A                # inductance of the rigid pipe [kg/m4]
 A3D = 0.5*32*R**2*math.sin(2*math.pi/32)     # the 32-sided patch polygon of
