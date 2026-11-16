@@ -326,7 +326,19 @@ def finished(case):
     return log.is_file() and "\nEnd\n" in log.read_text()[-2000:]
 
 
-def make_3d(name, length, coupled, c0, dt, force, free_end=False):
+def shell_edge_stiffness():
+    """Radial stiffness per unit end-face area of the continuing wall: the
+    edge of a semi-infinite thin cylindrical shell displaced radially (edge
+    moment free) needs the shear force Q = 2 D beta^3 u per unit
+    circumference (Timoshenko), D = E h^3/(12 (1 - nu^2)),
+    beta^4 = 3 (1 - nu^2)/(R^2 h^2); per unit area of the cut, Q/h [Pa/m]"""
+    D = E*H**3/(12*(1 - NU**2))
+    beta = (3*(1 - NU**2)/(R**2*H**2))**0.25
+    return 2*D*beta**3/H
+
+
+def make_3d(name, length, coupled, c0, dt, force, free_end=False,
+            spring_end=False, closed_end=False):
     case = RUNS/name
     if case.exists() and finished(case) and not force:
         print(f"{name}: finished, kept")
@@ -349,6 +361,34 @@ def make_3d(name, length, coupled, c0, dt, force, free_end=False):
                "        value       uniform 0;\n    }")])
         (case/"constant"/"fluid"/"circulation1DProperties").write_text(
             properties_coupled(c0))
+    if closed_end:
+        # The far end closed: the full tube's outlet a wall, the 1D vessel's
+        # far end a zero-flow inlet, so the pulse returns from the 1D side
+        if coupled:
+            edit(case/"constant"/"fluid"/"circulation1DProperties",
+                 [(r"outlet\s*\{\s*type\s+absorbing;\s*connection\s+distal\.out;\s*\}",
+                   "outlet { type flowInlet; connection distal.out; "
+                   "flowRate constant 0; }")])
+        else:
+            edit(case/"0"/"fluid"/"U",
+                 [(r"outlet\s*\{\s*type\s+fluxCorrectedVelocity;\s*\}",
+                   "outlet\n    {\n        type            noSlip;\n    }")])
+            edit(case/"0"/"fluid"/"p",
+                 [(r"outlet\s*\{\s*type\s+fixedValue;\s*value\s+uniform 0;\s*\}",
+                   "outlet\n    {\n        type            zeroGradient;\n    }")])
+    if spring_end:
+        # The wall's end at the interface on an elastic support with the
+        # radial edge stiffness of the continuing shell, free axially
+        k = shell_edge_stiffness()
+        edit(case/"0"/"solid"/"D",
+             [(r"outlet\s*\{\s*type\s+fixedDisplacement;\s*value\s+uniform \(0 0 0\);\s*\}",
+               "outlet\n    {\n        type            solidSpringDashpot;\n"
+               "        kNormal         uniform 0;\n"
+               f"        kTangential     uniform {k:.6g};    // 2 D beta^3 / h: the semi-infinite shell's edge\n"
+               "        value           uniform (0 0 0);\n    }")])
+        edit(case/"0"/"solid"/"pointD",
+             [(r"outlet\s*\{\s*type\s+fixedValue;",
+               "outlet\n    {\n        type            calculated;")])
     if free_end:
         # The wall's end at the interface free to breathe (zero traction)
         # instead of clamped
@@ -363,7 +403,9 @@ def make_3d(name, length, coupled, c0, dt, force, free_end=False):
                "outlet\n    {\n        type            calculated;")])
     print(f"{name}: {length*100:g} cm, {n} axial cells, dt = {dt:g} s"
           + (f", 1D c0 = {c0:.4g} m/s" if coupled else "")
-          + (", free wall end at the interface" if free_end else ""))
+          + (", free wall end at the interface" if free_end else "")
+          + (f", spring wall end, k = {shell_edge_stiffness():.3g} Pa/m" if spring_end else "")
+          + (", closed far end" if closed_end else ""))
 
 
 def make_1d(name, c0, force):
@@ -388,6 +430,10 @@ def main():
                     help=f"3D time step [s] (default {DELTA_T:g})")
     ap.add_argument("--freeEnd", action="store_true",
                     help="coupled run with the wall's end free at the interface")
+    ap.add_argument("--springEnd", action="store_true",
+                    help="coupled run with the wall's end on the continuing shell's edge stiffness")
+    ap.add_argument("--closedEnd", action="store_true",
+                    help="the far end closed (full3D_closed and coupled_..._closed): the pulse returns from the 1D side")
     ap.add_argument("--force", action="store_true",
                     help="rewrite finished runs too")
     args = ap.parse_args()
@@ -395,13 +441,17 @@ def main():
     print(f"plane-strain static match: c0 = {c0_plane_strain():.4g} m/s; "
           f"using {c0:.4g} m/s, E1D = {youngs1D(c0):.4g} Pa")
     RUNS.mkdir(exist_ok=True)
-    make_3d("full3D", LFULL, False, c0, args.dt, args.force)
-    if args.c0 or args.freeEnd:
+    make_3d("full3D" + ("_closed" if args.closedEnd else ""), LFULL, False,
+            c0, args.dt, args.force, closed_end=args.closedEnd)
+    if args.c0 or args.freeEnd or args.springEnd or args.closedEnd:
         # Another coupled run beside the static-match one, named by its c0
         # and end condition
         name = ("coupled_c" + f"{c0:.3g}".replace(".", "p")
-                + ("_free" if args.freeEnd else ""))
-        make_3d(name, L3D, True, c0, args.dt, args.force, args.freeEnd)
+                + ("_free" if args.freeEnd else "")
+                + ("_spring" if args.springEnd else "")
+                + ("_closed" if args.closedEnd else ""))
+        make_3d(name, L3D, True, c0, args.dt, args.force, args.freeEnd,
+                args.springEnd, args.closedEnd)
     else:
         make_3d("coupled", L3D, True, c0, args.dt, args.force)
         make_1d("only1D", c0, args.force)

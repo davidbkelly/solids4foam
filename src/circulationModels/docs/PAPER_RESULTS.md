@@ -220,6 +220,27 @@ it. Against the pipe of radius R instead of the equal-area pipe the floor
 is 6e-5 (the earlier, wrongly referenced comparison, kept in the git
 history of this file).
 
+### 3. A 3D spatial order (Womersley segment, B2)
+
+`womersleySegment/spaceStudy.py run` (`space_alpha6.md`,
+`plots/space_alpha6.png`): the wedge mesh at 25 x 50, 50 x 100 and
+100 x 200 (radial x axial, the radial grading 10:1 kept), alpha = 6, 0 to
+1 s from rest, BDF 4 and coupling order 4 at dt = 0.5 ms, linearised
+vessels at fourth order, against the exact transient of the equal-area
+pipe: port pressures and flow (RMS / RMS of the exact), mid-length
+velocity profile (max over eight instants of max |u - u_exact| / max
+|u_exact|). The time error is negligible: the 25 x 50 level at dt = 0.25
+and 0.125 ms gives the same errors to three digits (verified).
+
+Results so far (the 100 x 200 level is running; a referee will want all
+three): 25 x 50: ports 2.3e-5; 50 x 100: 4.3e-6 (order 2.4 between them);
+the profile errors and the third level to follow. Against the pipe of
+radius R instead of the equal-area pipe the port errors are 5.9e-5 and
+8.0e-5, i.e. no convergence, which is how the wedge-area effect was found.
+alpha = 3 and 12 on the two cheaper levels are running (at alpha = 3 the
+PIMPLE loop of the tutorial runs to its iteration cap on the base mesh;
+whether that limits the error will be stated).
+
 ### 4. The floor in the network case (B6): traced (verified)
 
 `thoracicAorta37/floorStudy.py` (15 BDF 4 runs, 3 at a time, about 50
@@ -343,6 +364,47 @@ count, not the coupling (the uncoupled pipe needs as many).
 
 ## Phase 2
 
+### 8. The compliant FSI tube (B4): in progress
+
+**(a) Elastic support on the cut end of the wall.** Implemented in
+`formaggia2007/makeCases.py --springEnd` with the `solidSpringDashpot`
+condition of solids4foam on the wall's cut face: axially free (`kNormal`
+0) and, in the face's plane (radial and circumferential), the stiffness of
+the continuing wall taken as the edge stiffness of a semi-infinite thin
+cylindrical shell displaced radially with its edge moment free
+(Timoshenko): shear force `Q = 2 D beta^3 u` per unit circumference,
+`D = E h^3/(12 (1 - nu^2))`, `beta^4 = 3 (1 - nu^2)/(R^2 h^2)`, divided
+by the wall thickness for a traction per unit cut area: `kTangential` =
+1.04e7 Pa/m for this wall (`shell_edge_stiffness()`). This is the static
+stiffness the continuing tube presents to its cut; it sits between
+clamped (infinite) and free (zero). Note on the machine: the installed
+`libsolids4FoamModels` (February 2026) has neither this condition nor the
+BDF schemes, so the FSI runs of this item use a full build of the
+checkout's solids4FoamModels in a second scratch directory; the clamped
+case is rerun with it first to show the library change itself does not
+move the results (pending).
+
+**(b) The wave returning from the 1D side.** `--closedEnd` writes
+`full3D_closed` (the 15 cm FSI tube with a wall at its far end) and
+`coupled_c4p92_closed` (the 1D vessel's far end a zero-flow inlet, which
+reflects with +1 in pressure), so the pulse comes back through the
+interface from 1D into 3D; `analyse.py` compares a `_closed` coupled run
+with `full3D_closed`. Cases written, runs pending (about 30 minutes: the
+coupled run serial, the full tube on 4 ranks).
+
+**(c) Refinement with the smooth pulse.** Not launched: the estimate is
+above the two-hour limit. Per end condition (clamped, free, spring) the
+coupled run at the tutorial's mesh and dt = 25 us takes 12 minutes serial
+and the next level (half the cells in each direction and half the step)
+about 8 times that; the full-tube reference at the fine level about 2
+hours on 4 ranks. Two levels for three end conditions plus two reference
+levels is 7 to 8 hours of wall time with the machine otherwise idle. A
+cheaper version that still answers Malossi's observation (does the
+reflection grow or shrink with refinement, and for which end condition):
+two levels for the three end conditions at dt = 25 us with the mesh alone
+refined (the time error is far below the mesh error at this step, see the
+order study), about 3 hours. Awaiting a decision.
+
 ### 9. The step input in the resonator: limiters (verified)
 
 `dobroserdova2016/limiterStudy.py` (12 1D runs, 1.5 minutes; `limiters.md`,
@@ -377,3 +439,75 @@ the +1 reflection. Only the report's wording in Section 6.2 ("Γ = −1 in
 pressure") was wrong: corrected in the report source, and the sign is now
 stated in `flowInlet.H` and the `circulation1D` README. Verified by reading
 the code and the script; no run needed.
+
+## Phase 3 (not started; asked for a feasibility note only)
+
+### A 3D segment that carries waves with matched impedance: feasibility
+
+The idea: make the 3D fluid weakly compressible with a sound speed equal
+to the 1D wave speed, c0 = 6.17 m/s, so that a rigid-walled 3D segment
+has the acoustic impedance rho c0/A of the vessels and transmits the pulse
+without the inertance reflection, as a compliant segment of matched wall
+would, but without FSI.
+
+What exists in this code base. OpenFOAM.com v2412 has `rhoPimpleFoam`
+(pressure-based, compressible, any equation of state through the thermo
+library, including a linear `rhoConst`-like law `perfectFluid`
+(rho = rho0 + psi p) and `rPolynomial`), and solids4foam's fluid models
+include a compressible one (`compressibleFluid`-type solvers wrapping the
+same libraries). The 1D coupler is a boundary condition on the kinematic
+or static pressure of the patch plus a flux sample; both exist on the
+compressible side (`p` is absolute there, the coupler would impose P1D
+directly instead of P1D/rho, a one-line switch, and sample `phi` divided
+by rho). So the coupling mechanics carry over with small changes.
+
+What the physics needs. A linear acoustic pipe of length l with sound
+speed c0 and the same area as the vessels is exactly a matched
+transmission line: Gamma = 0 at both ends, delay l/c0, and the exact
+solution of the coupled problem is the incident pulse delayed, at any
+amplitude in the linear regime. That makes it a cleaner exact benchmark
+than the rigid segment (whose exactness rests on plug flow), and one with
+a 3D wave inside the segment. Two things must hold for the 3D to be a
+transmission line: (i) the pressure wave must be plane, i.e. the segment
+must be straight with uniform patches and the wavelength (c0 T = 6 m at
+1 Hz, 4 cm for a 7 ms Gaussian's width) much longer than the radius, which
+holds; (ii) the 3D time step must resolve the acoustic transit, l/c0 =
+13 ms for 8 cm, which it does trivially (the acoustic CFL at c0 = 6 m/s
+is benign; this is the virtue of a slow sound speed).
+
+What stands in the way. (1) The equation of state: perfectFluid gives
+c^2 = 1/psi at fixed temperature; a sound speed of 6 m/s with rho = 1050
+needs psi = 0.028 s^2/m^2, far outside the thermo library's expectations
+(it is written for gases and liquids near 1500 m/s) but not forbidden; the
+energy equation is a nuisance (set an isothermal, constant-cp fluid and
+ignore it, or use the solids4foam compressible fluid model if it allows
+dropping the energy equation). (2) The pressure-based algorithm with
+`transonic no` treats the compressibility term psi dp/dt implicitly and
+is second order with `backward`; whether BDF 3 and 4 can be applied to
+the density equation as well depends on `rhoPimpleFoam`'s use of
+`fvm::ddt(psi, p)`, which goes through the same ddt scheme interface and
+so should work, but the pressure-based compressible algorithm's own
+accuracy in time has not been verified here. (3) The outflow boundary at
+a matched impedance: the coupler imposes a uniform pressure on the patch,
+which is correct for a plane wave; the velocity condition must let the
+wave out (`pressureInletOutletVelocity` as now). (4) Nothing of this
+exists as a test case; the rigid-segment benchmark's scripts carry over
+(the closed form becomes the pure delay).
+
+Estimate: a week of work to have the compressible rigid pipe running with
+the 1D coupler and compared with the delay solution; the fourth-order
+study would follow the existing highOrder.py. Worth doing if the paper
+wants a 3D segment that does not reflect, i.e. a demonstration that the
+coupling is exact when the 3D side itself carries the wave; it does not
+replace the FSI segment, which is the physical case.
+
+### An impedance (Robin) interface condition
+
+Not touched, as asked. For the record, the ingredient is already in the
+code: within one step each vessel end answers the port flow as a resistor
+Zc (the coupler's documentation and BENCHMARKS3D1D.md), so a patch
+condition `p = P* + Zc (Q - Q*)`, with P* and Q* the network's prediction,
+would make the outer iteration converge in one pass for a rigid segment
+(the model problem's contraction factor dt/(a0 tau) becomes zero) and
+would be the natural place for an "impedance" condition. It is method
+development and changes the coupler, so it waits for a decision.

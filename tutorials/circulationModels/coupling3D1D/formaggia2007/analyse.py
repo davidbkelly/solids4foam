@@ -137,13 +137,14 @@ def main():
     lines = ["# Formaggia et al. (2007), section 5: the pulse tube continued "
              "by a 1D vessel", ""]
     data = {}
-    if (RUNS/"full3D"/"postProcessing"/"fluid").is_dir():
-        if not finished("full3D", "log.solids4Foam"):
-            lines += ["**full3D has not finished: partial data.**", ""]
-        data["full3D"] = sections_3d("full3D")
-        c3, zs, ts = wave_speed(data["full3D"])
-        lines += [f"3D wave speed (half-peak arrival at z = "
-                  f"{', '.join(f'{z*100:g}' for z in zs)} cm): {c3:.3f} m/s", ""]
+    for ref in ("full3D", "full3D_closed"):
+        if (RUNS/ref/"postProcessing"/"fluid").is_dir():
+            if not finished(ref, "log.solids4Foam"):
+                lines += [f"**{ref} has not finished: partial data.**", ""]
+            data[ref] = sections_3d(ref)
+            c3, zs, ts = wave_speed(data[ref])
+            lines += [f"3D wave speed of {ref} (half-peak arrival at z = "
+                      f"{', '.join(f'{z*100:g}' for z in zs)} cm): {c3:.3f} m/s", ""]
     for c in coupled:
         if not (RUNS/c/"postProcessing"/"fluid").is_dir():
             continue
@@ -161,16 +162,20 @@ def main():
         for c in coupled:
             if c not in data:
                 continue
-            lines += [f"## {c}: 1D c0 = {c0_of(c):.3g} m/s", "",
+            # A closed-end run is compared with the closed full tube
+            ref = "full3D_closed" if c.endswith("_closed") else "full3D"
+            if ref not in data:
+                continue
+            lines += [f"## {c}: 1D c0 = {c0_of(c):.3g} m/s (against {ref})", "",
                       "| z [cm] | where | peak P full3D / coupled / 1D alone [Pa] "
                       "| arrival full3D / coupled / 1D alone [ms] "
                       "| RMS(P coupled - full3D) / pulse "
                       "| RMS(Q coupled - full3D) / peak Q |",
                       "|---|---|---|---|---|---|"]
             for zcm in PLANES_CM:
-                if zcm not in data["full3D"]:
+                if zcm not in data[ref]:
                     continue
-                tf, Pf, Qf = data["full3D"][zcm]
+                tf, Pf, Qf = data[ref][zcm]
                 where = ("3D" if zcm*1e-2 < L3D
                          else "port" if zcm*1e-2 == L3D else "1D")
                 cells = [f"{Pf.max():.0f}"]
@@ -189,10 +194,10 @@ def main():
                         arr.append("-")
                 lines.append(f"| {zcm:g} | {where} | {' / '.join(cells)} | "
                              f"{' / '.join(arr)} | {err[0]} | {err[1]} |")
-            tf, Df = displacement("full3D")
+            tf, Df = displacement(ref)
             tc, Dc = displacement(c)
             lines += ["", f"Radial wall displacement at z = 2.5 cm: peak "
-                      f"{1e6*Df.max():.2f} um (full3D), {1e6*Dc.max():.2f} um "
+                      f"{1e6*Df.max():.2f} um ({ref}), {1e6*Dc.max():.2f} um "
                       f"({c}); RMS difference {1e6*rms(tc, Dc, tf, Df):.3f} um",
                       ""]
     (HERE/"results.md").write_text("\n".join(lines))
