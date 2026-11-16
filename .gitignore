@@ -133,3 +133,7 @@ tutorials/circulationModels/circulation0D/pipeWindkessel/implicit/
 # Boileau et al. (2015) paper and supplementary material (copyrighted)
 src/circulationModels/circulation1D/*.pdf
 src/circulationModels/circulation1D/SuppMaterial_1DBenchmark_Boileau_etal/
+
+# Generated reference solutions of the 3D-1D benchmarks (analyse.py --csv, benchmarks3D1D.py csv)
+tutorials/circulationModels/coupling3D1D/dobroserdova2016/reference/
+tutorials/circulationModels/coupling3D1D/womersleySegment/reference/alpha*_p*.csv

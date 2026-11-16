@@ -85,10 +85,36 @@ transmits 95 % instead of 99.9 %, and the runs follow the viscous values,
 not the inviscid ones. The entrance region at the inlet port leaves no
 measurable trace at this length (l/R = 10).
 
+**The wedge's cross-section.** Those 1e-4 are the mesh's geometry, not the
+coupling: the wedge has a flat wall between vertices at radius R, so its
+cross-section is `0.5 R^2 sin(theta)` per wedge of theta = 5 degrees,
+0.99873 of its share of `pi R^2`, and the 3D problem it poses is the
+circular pipe of that area, `R_eq = R sqrt(sin(theta)/theta)` = 9.99365 mm.
+Against that pipe's Womersley solution (`results.md`, second line of each
+case) the amplitude errors are 5 to 7e-6 at alpha = 6 and 12 and 1.4 to
+1.6e-5 at alpha = 3, the phases 0.0002 to 0.0004 degrees. The same holds
+for any wedge or polygonal mesh: the reference must take the mesh's own
+area (as the rigid-segment benchmark takes its 32-gon patch), or the
+comparison floors at the area deficit times |Gamma|.
+
 What this adds to `rigidSegment3D`: the coupling is exact for a 3D side
 whose velocity profile is not uniform, i.e. the exchange of mean pressure
 and flow at the ports loses nothing when the 3D flow is a genuine viscous
 solution.
+
+**The exact transient and the reference files.** The linear problem has an
+exact solution from rest as well: the incident wave (delayed by L1/c0)
+convolved with the impulse responses of 1 + Gamma, T/Zc and T at every
+frequency (`analyse.exact_transient`, by FFT, Womersley's impedance at
+each frequency with the exponentially scaled Bessel functions), and the
+mid-length velocity profile from the flow's spectrum and Womersley's
+profile per frequency (`exact_transient_profile`); both agree with the
+periodic solution to 1e-12 at late times. `analyse.py --csv` writes them
+for alpha = 3, 6 and 12 to `reference/` (ports over the first 6 s, the
+periodic complex amplitudes, the profile at eight instants of the first
+second), for other codes; `spaceStudy.py` measures the wedge's order in
+space against them, and `physiological.py` makes a numerical reference at
+5 kPa, where the 1D equations are nonlinear.
 
 ## Order in time
 
@@ -110,3 +136,26 @@ The finest Euler, backward and BDF 3 runs differ from the finest BDF 4 run
 by 1.4e-4, 4.8e-7 and 1.4e-8 of the flow: the 3D viscous solution and the
 coupling converge together at the scheme's order, down to the 1e-8 level
 where the converged runs agree.
+
+**Against the exact solution** (`../orderStudy.py --case womersleySegment
+--exact`; `orders_linear.md`, `plots/orders_linear.png`): the same runs
+with the vessels linearised at fourth order (kExact 3, RK4, 800 cells),
+each compared with the exact transient of the pipe of the wedge's
+cross-section (RMS error / RMS of the signal, port flow; the four port
+signals agree to the digits shown):
+
+| dt [ms] | Euler | backward | BDF 3 | BDF 4 |
+|---|---|---|---|---|
+| 4 | 1.08e-3 | 3.09e-5 | 7.34e-6 | 6.55e-6 |
+| 2 | 5.48e-4 | 9.86e-6 | 5.57e-6 | 5.61e-6 |
+| 1 | 2.77e-4 | 6.06e-6 | 5.57e-6 | 5.58e-6 |
+| 0.5 | 1.41e-4 | 5.63e-6 | 5.57e-6 | 5.57e-6 |
+| orders | 0.99, 0.99, 0.97 | 1.65, 0.70, 0.10 | 0.40, 0, 0 | 0.22, 0.01, 0 |
+
+Euler converges at its order to the finest step and backward at 1.65
+before the floor; BDF 3 and BDF 4 are at the floor from the coarsest step.
+The floor, 5.6e-6, is the same for every family and is the 50 x 100
+wedge's spatial error (`spaceStudy.py`: 4.3e-6 for this mesh over 1 s,
+2.3e-5 on 25 x 50), so the time orders are those of the self-convergence
+above, down to the mesh's own error. Against the pipe of radius R instead
+of the equal-area one the floor is 6e-5 at every mesh and time step.

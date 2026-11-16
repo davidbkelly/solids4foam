@@ -23,6 +23,22 @@ work goes.
   numbers are five times smaller.
 - **Reflection sign of the flow inlet (wording).** Γ = +1 in pressure, not
   −1 (item 10).
+- **Womersley segment: the agreement is ten times better than reported.**
+  The wedge mesh has a flat wall, so its cross-section is
+  0.5 R^2 sin(theta) per wedge, 0.99873 of its share of pi R^2, and the 3D
+  problem solved is the circular pipe of that area (R_eq = R sqrt(sin
+  theta/theta) = 9.99365 mm). Against the pipe of radius R the report's
+  amplitude errors (0.7 to 1.5e-4) and phases (0.003 to 0.004 degrees)
+  are this geometry, not the coupling or the mesh: against the equal-area
+  pipe they are 3e-6 (alpha 6 and 12), 1.2e-5 (alpha 3) and 0.0002 to
+  0.0004 degrees. `results.md` now carries both rows, and the spatial
+  study (item 3) measures against the equal-area pipe: against pi R^2 it
+  floors at 6e-5 whatever the mesh or time step (verified: 25 x 50 and
+  50 x 100 at dt = 0.5, 0.25 and 0.125 ms all give 5.9e-5).
+- **The aorta floor is the 3D mesh, not open (item 4).** The report said
+  the cause was open with the stubs and junctions as candidates; it is the
+  non-orthogonal cone mesh in pimpleFoam (the cylinder converges at 3.8 to
+  3.9).
 
 ## Preliminaries
 
@@ -140,6 +156,162 @@ No order reduction from the time-dependent boundary data at the
 Runge-Kutta stages was found: the coupler passes the port flow as a cubic
 in time over each step and the 1D RK4 stages evaluate it at the stage
 times, and the orders above are clean to 2e-8.
+
+### 2. Time order against the exact solutions
+
+**Dobroserdova resonator (verified).** `orderStudy.py --case dobroserdova2016
+--exact` (20 runs, 12 minutes with 3 at a time; `dobroserdova2016/orders_linear.md`,
+`plots/orders_linear.png`): the hard-coupling 3D run at dt = 2 to 0.125 ms
+with the vessel linearised at fourth order in space and time (kExact 3,
+RK4, 200 cells), every run against the delay-equation solution (integrated
+with the pipe's patch area, 64000 steps per round trip, accurate to 1e-8).
+RMS error / RMS of the signal over the first period, port flow:
+
+| dt [ms] | Euler | backward | BDF 3 | BDF 4 |
+|---|---|---|---|---|
+| 2 | 1.36e-1 | 1.06e-2 | 1.48e-3 | 1.28e-3 |
+| 1 | 8.55e-2 | 2.42e-3 | 2.19e-4 | 9.63e-5 |
+| 0.5 | 4.64e-2 | 5.51e-4 | 2.91e-5 | 1.22e-5 |
+| 0.25 | 2.38e-2 | 1.38e-4 | 4.48e-6 | 2.15e-6 |
+| 0.125 | 1.21e-2 | 3.44e-5 | 2.21e-6 | 2.26e-6 |
+| orders | 0.67, 0.88, 0.96, 0.98 | 2.13, 2.14, 2.00, 2.00 | 2.76, 2.91, 2.70, 1.02 | 3.74, 2.98, 2.50, -0.07 |
+
+Euler and backward reach their orders against the exact solution; BDF 3
+and BDF 4 run at 2.9 and 3.7 until a floor of 2.2e-6 in the flow; the
+pressure has a floor of 5.3e-4 for every family. Both floors are the 1D
+vessel's representation of the exact solution's discontinuities, not the
+coupling: the sine inflow starts from rest with a finite slope, so the
+pipe pressure `L dQ/dt` jumps at every round-trip arrival of the front
+and the flow has a kink; the 1D-only linearised run with the pipe as an
+inertance node, same scheme and cells, has exactly these floors (2.33e-6
+and 5.29e-4) and they fall at first order in dx for P and second for Q
+(verified over 100 to 800 cells). So the exact comparison confirms the
+self-convergence orders down to the level the problem's own
+non-smoothness allows, and a referee should be told that the resonator
+test's exact solution is piecewise smooth.
+
+**Womersley segment (verified).** Exact transient solution implemented
+(`womersleySegment/analyse.py: exact_transient`, the Womersley transfer
+function at every frequency convolved with the ramped incident wave by
+FFT; checked against the periodic Womersley solution to 1e-12 at late
+times; its own grid error is 1e-11). The reference is the circular pipe
+of the wedge's cross-section (see "what changed"). `orderStudy.py --case
+womersleySegment --exact` (16 runs, about 1.5 h with 3 at a time;
+`womersleySegment/orders_linear.md`, `plots/orders_linear.png`):
+linearised vessels at fourth order, alpha = 6, 0 to 0.6 s. RMS error /
+RMS of the signal, port flow (the four port signals agree to the digits
+shown):
+
+| dt [ms] | Euler | backward | BDF 3 | BDF 4 |
+|---|---|---|---|---|
+| 4 | 1.08e-3 | 3.09e-5 | 7.34e-6 | 6.55e-6 |
+| 2 | 5.48e-4 | 9.86e-6 | 5.57e-6 | 5.61e-6 |
+| 1 | 2.77e-4 | 6.06e-6 | 5.57e-6 | 5.58e-6 |
+| 0.5 | 1.41e-4 | 5.63e-6 | 5.57e-6 | 5.57e-6 |
+| orders | 0.99, 0.99, 0.97 | 1.65, 0.70, 0.10 | 0.40, 0, 0 | 0.22, 0.01, 0 |
+| self-convergence, finest triple | 1.00 | 1.99 | 2.86 | 3.32 |
+
+Euler converges at its order to the finest step; backward at 1.65 before
+the floor; BDF 3 and BDF 4 are at the floor from the coarsest step. The
+floor, 5.6e-6, is the 50 x 100 wedge's spatial error (item 3 gives 4.3e-6
+for this mesh over a 1 s window) and is the same for every family, so the
+exact comparison is consistent with the self-convergence orders down to
+it. Against the pipe of radius R instead of the equal-area pipe the floor
+is 6e-5 (the earlier, wrongly referenced comparison, kept in the git
+history of this file).
+
+### 4. The floor in the network case (B6): traced (verified)
+
+`thoracicAorta37/floorStudy.py` (15 BDF 4 runs, 3 at a time, about 50
+minutes; `floor.md`, `plots/floor.png`): the BDF 4 runs of the order
+study at dt = 1, 0.5 and 0.25 ms with one change each. Differences
+between successive steps of the port flow (RMS / RMS of the signal) and
+the order they give:
+
+| variant | e(1, 0.5) | e(0.5, 0.25) | order (Q / P) |
+|---|---|---|---|
+| baseline: cone, tapered stubs | 2.18e-05 | 1.88e-05 | 0.21 / 0.16 |
+| linear solvers 1e-15, p residual 1e-12 | 2.18e-05 | 1.88e-05 | 0.21 / 0.16 (runs identical to 3e-13) |
+| one non-orthogonal corrector | 2.18e-05 | 1.88e-05 | 0.21 / 0.16 (identical to 7e-13) |
+| uniform stubs, cone unchanged | 2.18e-05 | 1.89e-05 | 0.21 / 0.16 |
+| `ddtCorr no` | 1.48e-05 | 1.04e-05 | 0.50 / 0.70 |
+| cylinder (mean radius) instead of the cone | 2.76e-06 | 1.95e-07 | 3.82 / 3.91 |
+
+The floor is the 3D discretisation on the non-orthogonal cone mesh. The
+same network, stubs, junctions, coupling and schemes with the 3D segment
+as a cylinder converge at 3.8-3.9, as the uniform-vessel cases do. Not
+involved: the tapered stubs' end treatment, the junctions, the solver
+and PIMPLE tolerances, output precision (the floor is in coupling.dat's
+12-digit columns as much as in the 6-digit function-object output), the
+1D sub-stepping (ruled out before). On the cone, pimpleFoam's flux
+correction `fvc::ddtCorr` (its coupling coefficient switches on the local
+mismatch between the interpolated velocity and the flux, which vanishes on
+an orthogonal mesh in plug or developed flow) carries about half; the
+rest is the non-orthogonal treatment in the segregated algorithm. Both
+sit below the second-order error (`backward` converges cleanly at 1.95)
+and above the fourth-order one.
+
+What to claim: the coupling takes the 3D scheme's order on a 37-vessel
+network when the 3D discretisation has that order (the cylinder, 3.8-3.9),
+and a non-orthogonal pimpleFoam mesh does not go beyond second order in
+time whatever the ddt scheme, which is a statement about the 3D solver,
+not the coupling. The bound for the cone: 3e-6 of the signal, dt
+independent.
+
+### 5. Static against total pressure at the ports (B6)
+
+Implemented in `circulation1DCoupler` as `coupling { pressure total; }`
+(default `static`). The patch gets the uniform value
+`p = P1D + rho U1D^2/2 - pdyn3D`, with U1D = Q/A1D the velocity of the
+vessel's boundary state (the 1D model's own total pressure, as at its
+junctions; no dynamic part for a linearised vessel) and pdyn3D the
+patch's dynamic pressure from the sampled flux, by `kineticEnergy`:
+`mean` (rho U3D^2/2, U3D = Q/A3D; the usual mean total pressure, the
+default), `area` (rho <u_n^2>/2, the area average of the local dynamic
+pressure, 4/3 of the mean form for Poiseuille flow) or `flux` (the
+energy-flux form rho <u_n^3>/(2 <u_n>), 2 times the mean form for
+Poiseuille flow, which conserves the mechanical energy flux across the
+interface). The 1D limit (the `inertance` node) has its own
+`pressure total` with the mean velocities. Runs of the tutorial
+(restart from the periodic state, two cycles, dt = 1 ms): results below
+as they finish.
+
+**Finding on the energy-flux form (verified).** It is singular at flow
+reversal: `<u_n^3>` stays finite while `<u_n>` passes through zero, so the
+imposed pressure spikes. In the aorta run it reaches 475 Pa (10 % of the
+pulse) at Q = 0.2 ml/s and 277 Pa at 0.1 ml/s, two samples per cycle;
+away from reversal the correction is -49 Pa at peak flow at the 3D
+mid-plane (1 % of the pulse) and 9 Pa at the aortic arch (0.2 %). That
+form should not be used on a pulsatile case with reversal, which is why
+`mean` is the default.
+
+### 6. Cost (verified from the logs)
+
+Serial unless stated; "1D sub-steps" is the number of CFL steps the
+network takes per 3D step for one integration (`ceil(dt / (CFL
+min(dx/c)))`), and "per step" multiplies it by the network
+re-integrations the implicit coupling makes in that step (one per PIMPLE
+outer iteration, two per iteration on the Womersley case where the
+pressure is evaluated twice). Wall time per step on this machine (Apple
+silicon, 14 cores).
+
+| case | run | 3D cells | dt | outer it./step | 1D sub-steps (per step) | wall time | ranks | ms/step |
+|---|---|---|---|---|---|---|---|---|
+| rigid segment | implicit 2, dt 0.5 ms, 0.35 s | 3072 | 0.5 ms | 11.1 | 5 (55) | 124 s | 1 | 177 |
+| rigid segment | implicit 4, 6400 cells, dt 0.125 ms (finest of the fourth-order study) | 3072 | 0.125 ms | 6.8 | 10 (68) | 742 s | 1 | 265 |
+| Womersley segment | alpha 6, 6 s, BDF2 | 5000 (wedge) | 1 ms | 21.3 | 5 (213) | 2532 s | 1 | 422 |
+| FSI tube (`formaggia2007`) | coupled, Robin-Neumann, 20 ms | 3dTube quarter | 25 us | 3 FSI it./step (40 at dt 100 us) | 1 (the 1D CFL step, 59 us, is longer than dt) | 685 s | 1 | 857 |
+| FSI tube | full3D reference (15 cm), 20 ms | 3 x | 25 us | 3 | - | 867 s | 4 | 1084 |
+| 37-artery network | rigid3D, two cycles (1.654 s) | 27670 (cone) | 1 ms | 5.1 (10.1 re-integrations) | 14 (142) | 273 s | 1 | 165 |
+
+The 1D network is never the cost: 37 vessels at 2 mm cells take about
+0.5 ms per CFL step, so even 142 sub-steps per 3D step are a fifth of the
+165 ms. The implicit coupling's price is the outer iterations it needs,
+5 on the network at physiological amplitude (the 3D segment is short
+against the vessels, dt/tau small), 11 on the rigid segment at dt = 0.5 ms
+(dt/tau = 0.077) and 21 on the viscous wedge, where the segregated
+algorithm without momentum predictor on the wall-graded mesh sets the
+count, not the coupling (the uncoupled pipe needs as many).
 
 ### 10. Reflection sign of the flow inlet (done)
 

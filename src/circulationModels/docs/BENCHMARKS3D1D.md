@@ -222,6 +222,79 @@ Malossi et al. (2013), Passerini et al. (2009) and Formaggia et al. (2001)
 still need a full read to confirm nobody has compared with it.
 
 
+## 1b. The Womersley segment (specification)
+
+The rigid segment with no-slip walls at finite viscosity, rung 2 of the
+ladder: implemented and measured in `tutorials/circulationModels/coupling3D1D/womersleySegment`
+(its README has the results; `analyse.py` the exact solution, `analyse.py
+--csv` the reference files in `reference/`).
+
+| | |
+|---|---|
+| 1D vessels | as the rigid segment (R = 10 mm, h = 1.5 mm, E = 400 kPa, rho = 1050 kg/m3, inviscid, c0 = 6.1721 m/s, Zc = 2.0629e7 Pa s/m3), proximal L1 = 1 m and distal L2 = 1 m, linearised (or the inflow small: 50 Pa is 1.2e-3 of rho c0^2) |
+| 3D pipe | straight rigid pipe, length l = 100 mm, radius R = 10 mm, no-slip wall, Newtonian with kinematic viscosity nu = w R^2/alpha^2 for the Womersley number alpha at the forcing frequency f = 1 Hz (w = 2 pi f): alpha = 3, 6, 12 give nu = 6.98e-5, 1.75e-5, 4.36e-6 m2/s |
+| inlet | non-reflecting end of the proximal vessel sending in the pressure wave p(t) = 50 sin(w t) min(1, f t) Pa (one-period linear ramp) |
+| outlet | non-reflecting end of the distal vessel |
+| initial state | at rest |
+| interface | continuity of flow and static pressure at both pipe ends (the 3D velocity free to develop: zero-gradient or pressure-driven inlet velocity) |
+| exact solution | linear: the pipe is the series impedance of Womersley (1955), `Z(w) = i w rho l/(A (1 - F10))`, `F10 = 2 J1(L)/(L J0(L))`, `L = i^(3/2) R sqrt(w/nu)`, the Poiseuille resistance at w = 0; `Gamma = Z/(Z + 2 Zc)`, `T = 2 Zc/(Z + 2 Zc)`. Periodic state: `P_in = (1 + Gamma) P`, `Q = T P/Zc`, `P_out = T P` for the incident amplitude P at the inlet port (delayed by L1/c0). Transient from rest: the incident wave convolved with the impulse responses of (1 + Gamma), T/Zc and T at every frequency (FFT; `exact_transient`), and the mid-length axial profile `u(r, t)` from the flow's spectrum and Womersley's profile per frequency (`exact_transient_profile`); the two agree with the periodic solution to 1e-12 at late times |
+| quantities of interest | amplitude and phase of the port pressures and the flow in the periodic state (fitted over the last two periods, after 3 R^2/(j01^2 nu) seconds of transient: 6 s at alpha 6); the port time series over the first second; the mid-length velocity profile at eight instants of the first second and over the last period |
+| error norm | amplitude relative to the exact one, phase in degrees; RMS of the time series relative to the RMS of the exact; max over the instants of max over r of |u - u_exact| / max |u_exact| |
+| reference files | `reference/alpha{3,6,12}_ports.csv` (0 to 6 s every 0.1 ms), `_periodic.csv` (complex amplitudes, Gamma, T), `_profiles.csv` (u(r, t) at r in 101 points, t = 0.5 to 0.9375 s every 1/16 s) |
+| refinement | the 3D mesh (the 1D error is negligible: 2.5 mm cells on a 6 m wavelength); the tutorial's wedge is 50 radial cells graded 10:1 to the wall by 100 axial |
+
+## 1c. The open-ended pipe resonator (specification)
+
+Dobroserdova, Olshanskii and Simakov (2016), sections 4.2-4.3, as posed,
+with its exact solution: `tutorials/circulationModels/coupling3D1D/dobroserdova2016`
+(README, `analyse.py`, `analyse.py --csv` for `reference/`).
+
+| | |
+|---|---|
+| 1D vessel | L = 50 mm, R = 10 mm, wall giving c0 = 3.5 m/s (also 7 and 10.5), inviscid, rho = 1000 kg/m3, from rest at P = 0; linearised (or the flow small: 1e-7 m3/s is 1e-4 of A c0) |
+| inlet | prescribed flow Qin(t) = 1e-7 sin(2 pi t/0.3) m3/s ("sine") or 1e-7 for 0 <= t <= 0.1 s, then 0 ("step"), from t = 0; the inlet reflects returning waves with +1 in pressure |
+| 3D pipe | rigid, length l = 50 mm, radius 10 mm, inviscid (or slip), open at its far end: zero traction, p = 0 ("hard coupling"); or, "soft coupling", the 1D vessel feeds the pipe through their 0D element R1 - C - R2 with R1 = R2 = Zc/2 and C = l0 A/(rho c0^2), l0 = 1 mm |
+| pipe cross-section | the inductance of the exact solution is rho l/A with A the area the 3D mesh has (the tutorial's 32-gon, A3D = 0.99359 pi R^2) or pi R^2 for a 1D reduction; the two differ by 0.64 % in L and, over the 21 resonant periods compared, by a factor 5 in the apparent error |
+| exact solution | the lossless line of impedance Zc = rho c0/A and transit time td = L/c0 between the flow source and the lumped load: with f and g the forward and backward waves at the interface (P = f + g, Q = (f - g)/Zc), `f(t) = Zc Qin(t - td) + g(t - 2 td)` and `L dQ/dt = P` (hard) or the RCRL circuit (soft); integrated as delay equations (Heun, n2 steps per round trip 2 td; n2 = 64000 gives 1e-8) |
+| non-smoothness | the sine starts from rest with a finite slope, so dQ/dt and hence the pipe pressure P = L dQ/dt jump at every arrival of the wave front (every 2 td = 28.6 ms at 3.5 m/s) and Q has a kink there; the step input has jumps in Q itself. A 1D scheme resolves the jumps at first order in dx and the kinks at second, whatever its nominal order (see the README's order-in-time study) |
+| quantities of interest | Q and P at the interface over the first period (sine, 0.3 s) or 0.5 s (step); their peaks |
+| error norm | RMS over the window relative to the RMS of the exact; max relative to the inflow amplitude (Zc x 1e-7 for P) |
+| reference files | `reference/{sine,step}_c{350,700,1050}_{hard,soft}_pipe1D.csv` and `..._hard_pipe3D.csv` (every 0.1 ms) |
+
+## 1d. The compliant tube continued by a 1D vessel (specification, numerical reference)
+
+Formaggia, Moura and Nobile (2007), section 5 (Formaggia et al. 2001):
+`tutorials/circulationModels/coupling3D1D/formaggia2007` (README,
+`makeCases.py`, `analyse.py`).
+
+| | |
+|---|---|
+| 3D tube | the `3dTube` tutorial of solids4foam: inner radius 5 mm, wall 1 mm, length 50 mm, water (rho = 1000 kg/m3, nu = 3e-6 m2/s), wall linear elastic (rho = 1200 kg/m3, E = 300 kPa, nu = 0.3), both ends clamped; quarter tube with two symmetry planes, 80 axial cells; Robin-Neumann FSI (or Dirichlet-Neumann IQN-ILS) |
+| inlet | pressure 1333.2 Pa for 3 ms, then 0 (a 0.1 ms ramp) |
+| 1D vessel | on the outlet, 100 mm, absorbing end, wall matched to the 3D one's static compliance: a thick cylinder in plane strain gives c0 = 5.25 m/s, so E1D = 207 kPa with h = 1 mm in the sqrtElastic law (`--c0` sets another speed, e.g. the measured 4.92 m/s); 160 cells; `flowScale 4` for the quarter tube |
+| interface | continuity of flow and static pressure; the wall clamped at the cut (or free with `--freeEnd`) |
+| window | 20 ms; the wave reflected at the interface returns to z = 12.5 mm at about 18 ms |
+| quantities of interest | mean pressure and flow on the sections z = 12.5, 25, 37.5, 50 (the interface), 62.5, 75, 100, 125 mm; the radial wall displacement at z = 25 mm |
+| reference | numerical: the same FSI tube three times as long (150 mm, p = 0 at the far end: `full3D`), same mesh density and time step; what the 1D model misses (dispersion by the thick wall's inertia, the structural end condition) is a modelling difference, not an error of the coupling |
+| error norm | RMS over the window relative to the pulse (1333 Pa; the peak flow for Q); the peak values and their arrival times |
+| order | second in dt for the coupled system whatever the fluid scheme (the FSI solver's: interface velocity, mesh motion, `BDF 2` wall); the coupling preserves it |
+
+## 1e. A 3D segment in the 37-artery network (specification, numerical reference)
+
+`tutorials/circulationModels/coupling3D1D/thoracicAorta37` (README,
+`makeCases.py`, `analyse.py`, `floorStudy.py`).
+
+| | |
+|---|---|
+| network | the 37-artery in vitro network of Boileau et al. (2015), section 4.5 (Matthys et al. 2007): 37 tapered segments, resistance terminals, the measured inflow, at physiological amplitude; rho = 1050 kg/m3, mu = 2.5 mPa s (zeta = 9) |
+| 3D segment | the thoracic aorta II (segment s17, 72 mm, radius 11 to 9.26 mm) less an 8 mm 1D stub at each end: a rigid no-slip cone of 56 mm, O-grid of 27670 cells (8 x 8 core, four outer blocks of 8 cells graded 4:1 to the wall, 28 axial cells), pimpleFoam, no momentum predictor, two correctors |
+| interface | continuity of flow and static pressure (or total, `pressure total` with `kineticEnergy mean`) at the two stub ends |
+| initial state | the periodic state of the all-1D network (18 cycles from rest), the 3D as plug flow at the state's flow; run two further cycles |
+| quantities of interest | pressure and flow over the last cycle at the measurement sites aortic arch II, thoracic aorta II (the 3D mid-plane) and right iliac-femoral II; peak and minimum pressure, peak flow; the coupling's cost (outer iterations per step) |
+| references | the original all-1D network (what the rigid segment changes); its exact inviscid rigid limit, the segment as an `inertance` node of the cone's inertance rho l/(pi R0 R1) (`stubsInertance`; the viscous cone differs from it by the pressure drop and the developing profile); the in vitro measurements. All numerical |
+| error norm | RMS over the cycle relative to the pulse (P) and the peak flow (Q) |
+| order in time | the coupling takes the 3D scheme's order (3.8-3.9 with BDF 4 on an orthogonal 3D mesh: the cylinder variant of `floorStudy.py`); on the cone, pimpleFoam's non-orthogonal treatment and flux correction cap it at a floor of 3e-6 of the signal above second order |
+
 ## 2. Dobroserdova, Olshanskii & Simakov (2016), manufactured solution
 
 T.K. Dobroserdova, M.A. Olshanskii, S.S. Simakov, Multiscale coupling of

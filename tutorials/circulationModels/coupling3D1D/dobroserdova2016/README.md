@@ -53,6 +53,7 @@ reference has no reflection at all.
 
 ```bash
 ./Allrun            # 18 1D runs (seconds) + 2 pimpleFoam runs (minutes); results.md, plots/
+python3 analyse.py --csv     # the exact solutions as CSV in reference/ (for other codes)
 ```
 
 ---
@@ -129,3 +130,36 @@ pre-asymptotic because the first period from rest is the vessel's resonant
 transient (tau = 2.5 ms against dt = 2 ms). The finest Euler, backward and
 BDF 3 runs differ from the finest BDF 4 run by 1.2e-2, 3.4e-5 and 4.4e-7 of
 the flow.
+
+**Against the exact solution** (`../orderStudy.py --case dobroserdova2016
+--exact`; `orders_linear.md`, `plots/orders_linear.png`). The same runs
+with the vessel on the linearised 1D equations (`linearised true`, of which
+the delay equations are the exact solution at any amplitude) at fourth order
+in space and time (kExact 3, RK4, 200 cells), every run compared with the
+exact solution (RMS error / RMS of the signal over the period; the delay
+equations integrated with the pipe's patch area and 64000 steps per round
+trip, accurate to 1e-8):
+
+| dt [ms] | Euler Q / P | backward Q / P | BDF 3 Q / P | BDF 4 Q / P |
+|---|---|---|---|---|
+| 2 | 1.36e-1 / 2.72e-1 | 1.06e-2 / 3.30e-2 | 1.48e-3 / 1.37e-2 | 1.28e-3 / 1.12e-2 |
+| 1 | 8.55e-2 / 1.58e-1 | 2.42e-3 / 9.17e-3 | 2.19e-4 / 2.61e-3 | 9.63e-5 / 1.89e-3 |
+| 0.5 | 4.64e-2 / 8.67e-2 | 5.51e-4 / 2.36e-3 | 2.91e-5 / 6.71e-4 | 1.22e-5 / 5.90e-4 |
+| 0.25 | 2.38e-2 / 4.49e-2 | 1.38e-4 / 7.79e-4 | 4.48e-6 / 5.20e-4 | 2.15e-6 / 5.30e-4 |
+| 0.125 | 1.21e-2 / 2.29e-2 | 3.44e-5 / 5.37e-4 | 2.21e-6 / 5.25e-4 | 2.26e-6 / 5.29e-4 |
+| orders | 0.67, 0.88, 0.96, 0.98 | 2.13, 2.14, 2.00, 2.00 | 2.76, 2.91, 2.70, 1.02 | 3.74, 2.98, 2.50, -0.07 |
+
+(orders of Q.) Euler and backward converge at their orders to the finest
+step; BDF 3 and BDF 4 at 2.9 and 3.7 until a floor of 2.2e-6 in Q, and
+every family meets a floor of 5.3e-4 in P. Both floors are the 1D vessel's,
+not the coupling's: the 1D-only run with the pipe as an `inertance` node,
+same linearised equations, same scheme and cells, has 2.33e-6 and 5.29e-4
+against the exact solution. The exact solution is not smooth: the sine
+inflow starts from rest with a finite slope, so `P = L dQ/dt` at the pipe
+jumps at every arrival of the wave front (every round trip, 28 ms), and Q
+has a kink there; the 1D scheme resolves the jumps at first order in dx
+(P: 1.19e-3, 5.3e-4, 2.4e-4, 1.1e-4 over 100 to 800 cells with kExact 3)
+and the kinks at second (Q: 9.2e-6, 2.3e-6, 5.9e-7, 1.5e-7). The time
+orders are therefore as the self-convergence says, and the comparison with
+the exact solution is limited by the discontinuities of the problem posed,
+which no time scheme sees.

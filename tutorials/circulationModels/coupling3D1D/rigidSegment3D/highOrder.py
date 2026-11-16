@@ -4,6 +4,8 @@
     python3 highOrder.py [run] [NPROC]      set up and run, then analyse
     python3 highOrder.py                    analyse what has run
     python3 highOrder.py [run] [NPROC] --linear     against the closed form
+    python3 highOrder.py --reference     the finest nonlinear run as a numerical
+                                         reference (reference/*.csv)
 
 The vessels use the k-exact reconstruction of degree 3 with RK4 (fourth order
 in space and time, CFL 0.5), the pipe pimpleFoam with BDF 4; the 3D solution,
@@ -310,7 +312,43 @@ def figure(results, suffix=""):
     fig.savefig(HERE/"plots"/f"highOrder3D1D{suffix}.png", dpi=150)
 
 
+def write_reference(outdir=None):
+    """The physiological-amplitude variant's numerical reference: the finest
+    nonlinear run (implicit order 4, 6400 cells per vessel, dt = 0.125 ms,
+    kExact 3 + RK4 vessels, BDF 4 pipe, inflow x 1) as CSV: the pipe flow
+    and pressures at every step, and the profiles at t = 0.35 s (cell
+    averages). Its discretisation error is about 4e-7 of the peak (the
+    self-convergence of highOrder.md and the linear study's errors at this
+    level)."""
+    import os
+    outdir = outdir or str(HERE/"reference")
+    os.makedirs(outdir, exist_ok=True)
+    case = RUNS/f"HO_I4_n{REF[0]}"
+    if not finished(case):
+        sys.exit(f"{case} has not run: python3 highOrder.py run")
+    hdr = ("# rigid-segment benchmark at physiological amplitude (inflow Boileau Eq. 14 x 1, nonlinear 1D "
+           "sqrtElastic vessels): NUMERICAL reference, the finest run of highOrder.py (implicit coupling "
+           f"order 4, {REF[0]} cells per vessel, dt = {REF[1]*1e3:g} ms, kExact 3 + RK4 vessels at CFL 0.5, "
+           "BDF 4 pipe of 3072 cells); discretisation error about 4e-7 of the peak\n")
+    out = case/"postProcessing"/"circulation1DCoupling"/"0"
+    a = np.loadtxt(out/"coupling.dat", comments="#", ndmin=2)
+    with open(os.path.join(outdir, "rigidSegment_physiological_pipe.csv"), "w") as f:
+        f.write(hdr + "t [s],Q [m3/s],P1 pipe inlet [Pa],P2 pipe outlet [Pa]\n")
+        for row in zip(a[:, 0], a[:, 10], a[:, 3], a[:, 5]):
+            f.write(",".join(f"{v:.12g}" for v in row) + "\n")
+    for v in ("proximal", "distal"):
+        b = np.loadtxt(out/"profiles"/f"{END:g}"/f"{v}.dat", comments="#")[1:-1]
+        with open(os.path.join(outdir, f"rigidSegment_physiological_{v}_t0.35.csv"), "w") as f:
+            f.write(hdr + "x [m] (cell centre),A [m2],Q [m3/s],P [Pa]   (cell averages at t = 0.35 s)\n")
+            for row in b[:, :4]:
+                f.write(",".join(f"{x:.12g}" for x in row) + "\n")
+    print(f"written to {outdir}/")
+
+
 def main():
+    if "--reference" in sys.argv:
+        write_reference()
+        return
     args = [a for a in sys.argv[1:] if a != "--linear"]
     if args[:1] == ["run"]:
         nproc = int(args[1]) if len(args) > 1 else 6

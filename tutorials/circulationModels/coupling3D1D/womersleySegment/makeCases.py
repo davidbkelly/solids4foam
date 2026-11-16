@@ -128,7 +128,7 @@ functions
     return HEADER % ("system", "controlDict") + body + TAIL
 
 
-def properties():
+def properties(pInc=P_INC):
     body = f"""// The 1D side of the Womersley segment: the two vessels of the
 // rigid-segment benchmark, joined through the viscous pipe. The proximal
 // inlet sends the incident wave in and absorbs what comes back.
@@ -171,7 +171,7 @@ nodes
         pressure
         {{
             type        expression;
-            expression  #{{ {P_INC}*sin({OMEGA:.15g}*arg())*min(1, {F}*arg()) #}};
+            expression  #{{ {pInc}*sin({OMEGA:.15g}*arg())*min(1, {F}*arg()) #}};
         }}
     }}
     to3D                                // feeds the pipe's inlet (a wedge)
@@ -227,8 +227,9 @@ def run_name(alpha):
     return f"alpha{alpha:g}"
 
 
-def make(alpha, dt, force, name=None, end=None):
-    """name and end override the run's name and end time (the order study)"""
+def make(alpha, dt, force, name=None, end=None, pInc=P_INC):
+    """name and end override the run's name and end time (the order study);
+    pInc the incident amplitude (the physiological-amplitude variant)"""
     case = RUNS/(name or run_name(alpha))
     if case.exists() and finished(case) and not force:
         print(f"{case.name}: finished, kept")
@@ -240,7 +241,7 @@ def make(alpha, dt, force, name=None, end=None):
          [(r"nu\s+\[0 2 -1 0 0 0 0\]\s+[\d.e+-]+;",
            f"nu              [0 2 -1 0 0 0 0] {nu(alpha):.6g};")])
     (case/"system"/"controlDict").write_text(control_dict(alpha, dt, end))
-    (case/"constant"/"circulation1DProperties").write_text(properties())
+    (case/"constant"/"circulation1DProperties").write_text(properties(pInc))
     print(f"{case.name}: nu = {nu(alpha):.4g} m2/s, "
           f"{end if end is not None else end_time(alpha):g} s, dt = {dt:g} s")
     return case

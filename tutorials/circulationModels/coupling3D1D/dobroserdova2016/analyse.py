@@ -207,5 +207,37 @@ def figure(figs):
         plt.close(fig)
 
 
+def write_csv(outdir=None):
+    """The exact references as CSV: Q and P at the interface for both
+    inflows, c0 = 3.5, 7 and 10.5 m/s, hard and soft coupling, the pipe as
+    a 1D element (pi R^2) and as the tutorial's 3D mesh (A3D); every 0.1 ms"""
+    import os
+    outdir = outdir or str(HERE/"reference")
+    os.makedirs(outdir, exist_ok=True)
+    for inflow, (_, expr, end, _) in INFLOWS.items():
+        t = np.round(np.arange(0, end + 1e-9, 1e-4), 6)
+        for c0name, c0 in C0S.items():
+            for config in ("hard", "soft"):
+                for label, area in (("pipe1D", None), ("pipe3D", A3D)):
+                    if config == "soft" and label == "pipe3D":
+                        continue
+                    Q, P = exact(inflow, c0, config, t, pipeArea=area, n2=64000)
+                    f = os.path.join(outdir, f"{inflow}_{c0name}_{config}_{label}.csv")
+                    with open(f, "w") as fh:
+                        fh.write(f"# Dobroserdova et al. (2016) resonator, exact delay-equation solution: "
+                                 f"inflow {expr.strip('#{} ')} m3/s from rest, vessel L {L1D} m, R {A**0.5/math.pi**0.5:.6g} m, "
+                                 f"c0 {c0} m/s, Zc {RHO*c0/A:.10g} Pa s/m3, rho {RHO}, inviscid; pipe l {L3D} m, "
+                                 f"area {'pi R^2' if area is None else f'{area:.10g} m2 (32-gon patch)'}, "
+                                 f"L {RHO*L3D/(area or A):.10g} kg/m4; {config} coupling"
+                                 + (f", R1 = R2 = Zc/2, C {L0*A/(RHO*c0**2):.10g} m3/Pa" if config == "soft" else "")
+                                 + "\nt [s],Q interface [m3/s],P interface [Pa]\n")
+                        for row in zip(t, Q, P):
+                            fh.write(",".join(f"{v:.12g}" for v in row) + "\n")
+    print(f"written to {outdir}/")
+
+
 if __name__ == "__main__":
-    main()
+    if "--csv" in sys.argv:
+        write_csv()
+    else:
+        main()

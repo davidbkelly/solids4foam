@@ -20,8 +20,18 @@ benchmarks are in [../circulation1D](../circulation1D).
 ```bash
 ./Allrun            # every case (the rigidSegment3D sweeps are separate: see its README)
 python3 orderStudy.py --case dobroserdova2016|womersleySegment|thoracicAorta37
+python3 orderStudy.py --case dobroserdova2016|womersleySegment --exact   # linearised vessels, against the exact solutions
 python3 orderStudy.py --summary        # timeOrders.md, plots/timeOrders.png
+python3 womersleySegment/spaceStudy.py run     # order in space against the exact transient
+python3 thoracicAorta37/floorStudy.py          # the BDF 3/4 floor, one change at a time
 ```
+
+Each exact case writes its reference solution as CSV for other codes
+(`src/circulationModels/docs/benchmarks3D1D.py csv`,
+`dobroserdova2016/analyse.py --csv`, `womersleySegment/analyse.py --csv`,
+and the numerical references `rigidSegment3D/highOrder.py --reference`,
+`womersleySegment/physiological.py`); the specifications are in
+`src/circulationModels/docs/BENCHMARKS3D1D.md`.
 
 ## Order in time on every case
 

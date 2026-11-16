@@ -58,6 +58,95 @@ def exact(alpha):
     return out
 
 
+# The flat-walled wedge of the tutorial's mesh has the cross-section
+# 0.5 R^2 sin(theta) per wedge (theta = 5 degrees), 0.99873 of its share of
+# pi R^2, with the wall vertices at R: the 3D problem solved is closest to
+# the circular pipe of the same area, radius R_EQ = R sqrt(sin(theta)/theta).
+# exact_transient() and exact_transient_profile() take the pipe's area and
+# radius as arguments (defaults: pi R^2 and R); the space study uses the
+# equal-area pipe.
+import math as _math
+THETA = _math.radians(5.0)
+A_WEDGE = (360/5.0)*0.5*R**2*_math.sin(THETA)
+R_EQ = _math.sqrt(A_WEDGE/_math.pi)
+
+
+def impedance(w, alpha, A=A, R=R):
+    """Womersley's series impedance of the pipe at any angular frequency
+    w >= 0, for the viscosity of the run at Womersley number alpha (at the
+    forcing frequency); the Poiseuille resistance at w = 0. Exponentially
+    scaled Bessel functions keep the ratio finite at high frequency."""
+    from scipy.special import jve
+    w = np.asarray(w, dtype=float)
+    visc = nu(alpha)
+    Z = np.empty(w.shape, dtype=complex)
+    dc = w == 0
+    Z[dc] = 8*RHO*visc*L3D/(math.pi*R**4)
+    lam = 1j**1.5*R*np.sqrt(w[~dc]/visc)
+    f10 = 2*jve(1, lam)/(lam*jve(0, lam))
+    Z[~dc] = 1j*w[~dc]*RHO*L3D/(A*(1 - f10))
+    return Z
+
+
+def exact_transient(alpha, t, dtg=2.5e-5, Tpad=256.0, Tin=2.0, A=A, R=R):
+    """The exact response of the ports to the inlet's ramped incident wave
+    from rest, {to3D.P, to3D.Q, from3D.P, from3D.Q} at the times t: the
+    linear problem is a single reflection and transmission at the pipe,
+    with Gamma(w) = Z/(Z + 2 Zc) and T(w) = 2 Zc/(Z + 2 Zc) at every
+    frequency, so the ports are the convolution of the incident wave
+    (delayed by L1/c0) with the impulse responses, done by FFT on a grid
+    dtg over Tpad seconds. The incident wave is switched off after Tin
+    seconds, which by causality does not change the response before Tin
+    and lets it decay before the periodic window wraps. The grid error is
+    below 1e-10 of the signal (dtg = 2.5e-5 against 5e-5 and 1e-4)."""
+    n = int(round(Tpad/dtg))
+    tg = np.arange(n)*dtg
+    tau = tg - L1D/C0
+    pinc = np.where((tau >= 0) & (tau <= Tin),
+                    P_INC*np.sin(OMEGA*tau)*np.minimum(1.0, F*tau), 0.0)
+    w = 2*np.pi*np.fft.rfftfreq(n, dtg)
+    Z = impedance(w, alpha, A, R)
+    gamma = Z/(Z + 2*ZC)
+    T = 2*ZC/(Z + 2*ZC)
+    P = np.fft.rfft(pinc)
+    out = {}
+    for key, H in (("to3D.P", 1 + gamma), ("to3D.Q", T/ZC),
+                   ("from3D.P", T), ("from3D.Q", T/ZC)):
+        out[key] = np.interp(t, tg, np.fft.irfft(P*H, n))
+    return out
+
+
+def exact_transient_profile(alpha, r, times, dtg=1e-4, Tpad=128.0, Tin=2.0,
+                            A=A, R=R):
+    """The exact axial velocity u(r, t) at the pipe's mid-length at the
+    given times, for the same transient: the flow's spectrum times
+    Womersley's profile at each frequency, (1 - J0(L r/R)/J0(L))/(1 - F10)
+    per unit mean velocity (Poiseuille's 2 (1 - (r/R)^2) at w = 0).
+    Returns an array [len(times), len(r)]."""
+    from scipy.special import jve
+    n = int(round(Tpad/dtg))
+    tg = np.arange(n)*dtg
+    tau = tg - L1D/C0
+    pinc = np.where((tau >= 0) & (tau <= Tin),
+                    P_INC*np.sin(OMEGA*tau)*np.minimum(1.0, F*tau), 0.0)
+    w = 2*np.pi*np.fft.rfftfreq(n, dtg)
+    Z = impedance(w, alpha, A, R)
+    Qhat = np.fft.rfft(pinc)*(2*ZC/(Z + 2*ZC))/ZC
+    visc = nu(alpha)
+    lam = 1j**1.5*R*np.sqrt(w[1:]/visc)
+    f10 = 2*jve(1, lam)/(lam*jve(0, lam))
+    out = np.empty((len(times), len(r)))
+    for j, rj in enumerate(r):
+        phi = np.empty(w.shape, dtype=complex)
+        phi[0] = 2*(1 - (rj/R)**2)
+        ratio = jve(0, lam*rj/R)/jve(0, lam)*np.exp(
+            np.abs((lam*rj/R).imag) - np.abs(lam.imag))
+        phi[1:] = (1 - ratio)/(1 - f10)
+        u = np.fft.irfft(Qhat*phi/A, n)
+        out[:, j] = np.interp(times, tg, u)
+    return out
+
+
 def fit(t, x):
     """Complex amplitude X of x(t) = Re{X e^{i w t}} + c over the samples"""
     M = np.column_stack([np.cos(OMEGA*t), np.sin(OMEGA*t), np.ones_like(t)])
@@ -141,7 +230,20 @@ def main():
                 f"| {key} [{unit}] | {abs(X):.4g} / {abs(W):.4g} / {abs(I):.4g} "
                 f"| {ph(X):.2f} / {ph(W):.2f} / {ph(I):.2f} "
                 f"| {abs(X - W)/abs(W):.2e} | {dph:.3f} |")
-        lines.append("")
+        # The same against the circular pipe of the wedge's cross-section
+        # (flat wall: 0.5 R^2 sin(theta) per wedge; R_EQ): what the mesh
+        # actually represents
+        lam = 1j**1.5*R_EQ*math.sqrt(OMEGA/nu(alpha))
+        f10 = 2*jv(1, lam)/(lam*jv(0, lam))
+        Zeq = 1j*OMEGA*RHO*L3D/(A_WEDGE*(1 - f10))
+        geq, Teq = Zeq/(Zeq + 2*ZC), 2*ZC/(Zeq + 2*ZC)
+        pinc = -1j*P_INC*cmath.exp(-1j*OMEGA*L1D/C0)
+        exeq = {"P_in": (1 + geq)*pinc, "Q": Teq*pinc/ZC, "P_out": Teq*pinc}
+        lines += [f"Against the pipe of the wedge's cross-section (R_eq = "
+                  f"{R_EQ*1e3:.5f} mm, 0.99873 pi R^2): " + ", ".join(
+                      f"{k} {abs(fitted[k] - exeq[k])/abs(exeq[k]):.1e} / "
+                      f"{(math.degrees(cmath.phase(fitted[k]/exeq[k])) + 180) % 360 - 180:.4f} deg"
+                      for k in ("P_in", "Q", "P_out")), ""]
         profiles = load_profiles(case)
         if profiles:
             errs = []
@@ -210,5 +312,45 @@ def figure(figs):
     plt.close(fig)
 
 
+def write_csv(outdir=None):
+    """The exact references as CSV for alpha = 3, 6 and 12: the ports'
+    transient from rest over the first 6 s (every 0.1 ms), the periodic
+    complex amplitudes, and the mid-length velocity profile at eight
+    instants of the first second"""
+    import os
+    outdir = outdir or str(HERE/"reference")
+    os.makedirs(outdir, exist_ok=True)
+    for alpha in (3, 6, 12):
+        hdr = (f"# Womersley segment, exact linear solution: incident wave {P_INC} sin(2 pi {F} t) min(1, {F} t) Pa "
+               f"at the proximal inlet (non-reflecting), vessels L1 = L2 = {L1D} m, R {R} m, c0 {C0:.10g} m/s, "
+               f"Zc {ZC:.10g} Pa s/m3, rho {RHO}; pipe l {L3D} m, R {R} m, no slip, nu {nu(alpha):.10g} m2/s "
+               f"(alpha {alpha} at {F} Hz); from rest")
+        t = np.round(np.arange(0, 6 + 1e-9, 1e-4), 6)
+        ex = exact_transient(alpha, t, Tin=20.0)
+        with open(os.path.join(outdir, f"alpha{alpha}_ports.csv"), "w") as fh:
+            fh.write(hdr + "\nt [s],P_in [Pa],Q [m3/s],P_out [Pa]\n")
+            for row in zip(t, ex["to3D.P"], ex["to3D.Q"], ex["from3D.P"]):
+                fh.write(",".join(f"{v:.12g}" for v in row) + "\n")
+        w = exact(alpha)["Womersley"]
+        with open(os.path.join(outdir, f"alpha{alpha}_periodic.csv"), "w") as fh:
+            fh.write(hdr + "\n# periodic state, x(t) = Re{X exp(i w t)}: quantity,|X|,arg(X) [deg]\n")
+            for k in ("P_in", "Q", "P_out"):
+                fh.write(f"{k},{abs(w[k]):.12g},{math.degrees(cmath.phase(w[k])):.12g}\n")
+            fh.write(f"Gamma,{abs(w['Gamma']):.12g},{math.degrees(cmath.phase(w['Gamma'])):.12g}\n")
+            fh.write(f"T,{abs(w['T']):.12g},{math.degrees(cmath.phase(w['T'])):.12g}\n")
+        r = np.linspace(0, R, 101)
+        times = [0.5 + k/16 for k in range(8)]
+        u = exact_transient_profile(alpha, r, times, Tin=20.0)
+        with open(os.path.join(outdir, f"alpha{alpha}_profiles.csv"), "w") as fh:
+            fh.write(hdr + "\n# axial velocity u(r, t) [m/s] at the pipe's mid-length; r [m] then one column per t = "
+                     + ", ".join(f"{tk:g}" for tk in times) + " s\n")
+            for j, rj in enumerate(r):
+                fh.write(f"{rj:.12g}," + ",".join(f"{u[i, j]:.12g}" for i in range(len(times))) + "\n")
+    print(f"written to {outdir}/")
+
+
 if __name__ == "__main__":
-    main()
+    if "--csv" in sys.argv:
+        write_csv()
+    else:
+        main()

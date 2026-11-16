@@ -245,7 +245,9 @@ def exact_signals(case_name, t):
         Q, P = an.exact("sine", 3.5, "hard", t, pipeArea=an.A3D, n2=64000)
         return {"to3D.Q": (t, Q), "to3D.P": (t, P)}
     if case_name == "womersleySegment":
-        return {k: (t, x) for k, x in an.exact_transient(6.0, t).items()}
+        # the circular pipe of the wedge's cross-section (see its README)
+        ex = an.exact_transient(6.0, t, A=an.A_WEDGE, R=an.R_EQ)
+        return {k: (t, x) for k, x in ex.items()}
     raise SystemExit(f"{case_name} has no exact solution")
 
 
