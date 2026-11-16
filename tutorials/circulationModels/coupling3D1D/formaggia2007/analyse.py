@@ -149,6 +149,10 @@ def ref_for(c):
     changes the FSI results by a few percent), else full3D"""
     if c.endswith("_closed"):
         return "full3D_closed"
+    if "_T" in c:                     # pulseSweep.py: full3D_T<ms>
+        return "full3D" + c[c.index("_T"):]
+    if "_x" in c:                     # refineStudy.py: full3D_x<level>
+        return "full3D" + c[c.index("_x"):]
     # the runs made with the checkout's own build carry _lib2 or _spring
     # (the installed library has no solidSpringDashpot)
     if any(t in c for t in ("_lib2", "_spring")) \
@@ -162,7 +166,7 @@ def main():
     lines = ["# Formaggia et al. (2007), section 5: the pulse tube continued "
              "by a 1D vessel", ""]
     data = {}
-    for ref in ("full3D", "full3D_closed", "full3D_lib2"):
+    for ref in sorted(p.name for p in RUNS.glob("full3D*") if p.is_dir()):
         if (RUNS/ref/"postProcessing"/"fluid").is_dir():
             if not finished(ref, "log.solids4Foam"):
                 lines += [f"**{ref} has not finished: partial data.**", ""]
@@ -244,7 +248,8 @@ def figure(data, coupled):
     cols = ["#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9", "#F0E442"]
     for i, c in enumerate(coupled):
         tags = [t for t, w in (("free", "free wall end"), ("spring", "spring wall end"),
-                               ("closed", "closed far end"), ("lib2", "checkout build"))
+                               ("closed", "closed far end"), ("lib2", "checkout build"),
+                               ("T", "sin^2 pulse (pulseSweep.py)"))
                 if f"_{t}" in c]
         style[c] = (cols[i % len(cols)], "--",
                     f"3D (5 cm) + 1D (10 cm), c0 = {c0_of(c):.3g} m/s"

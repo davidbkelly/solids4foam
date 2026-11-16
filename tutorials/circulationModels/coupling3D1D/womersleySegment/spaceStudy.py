@@ -41,10 +41,17 @@ RUNS = HERE/"runs"
 END = 1.0
 DT = 5e-4
 LEVELS = [0.5, 1, 2]
+FAMILY = "graded"      # --family: graded (the tutorial's 10:1 wall grading,
+                       # the wedge of flat wall) or uniform (no grading, the
+                       # wedge scaled by sqrt(theta/sin theta) so that its
+                       # cross-section is pi R^2 and the exact solution is
+                       # that of the pipe of radius R, independent of the mesh)
+SCALE_U = math.sqrt(math.radians(mc.WEDGE_DEG)/math.sin(math.radians(mc.WEDGE_DEG)))
 
 
 def name(alpha, level, dt=None):
-    return f"space_alpha{alpha:g}_x{level:g}" + (f"_dt{dt:g}" if dt and dt != DT else "")
+    return (f"space_alpha{alpha:g}" + ("_u" if FAMILY == "uniform" else "")
+            + f"_x{level:g}" + (f"_dt{dt:g}" if dt and dt != DT else ""))
 
 
 def finished(case):
@@ -67,9 +74,24 @@ def setup(alpha, level, force=False, dt=None):
         return case
     mc.make(alpha, dt, True, name=case.name, end=END)
     nr, nz = int(round(50*level)), int(round(100*level))
-    edit(case/"system"/"blockMeshDict",
-            [(r"\(50 1 100\) simpleGrading \(0\.1 1 1\)",
-              f"({nr} 1 {nz}) simpleGrading (0.1 1 1)")])
+    if FAMILY == "uniform":
+        bm = case/"system"/"blockMeshDict"
+        s = bm.read_text()
+        for key, val in (("Rc", 0.00999048), ("Rs", 0.000436194),
+                         ("nRs", -0.000436194)):
+            s, n = re.subn(rf"^{key}\s+{val:g};", f"{key}  {val*SCALE_U:.8g};",
+                           s, count=1, flags=re.M)
+            assert n == 1, key
+        s = s.replace("(50 1 100) simpleGrading (0.1 1 1)",
+                      f"({nr} 1 {nz}) simpleGrading (1 1 1)")
+        s = s.replace("// R cos(2.5 deg), R sin(2.5 deg)",
+                      "// R cos(2.5 deg), R sin(2.5 deg), times sqrt(theta/sin theta):\n"
+                      "// the flat-walled wedge then has the cross-section pi R^2 / 72")
+        bm.write_text(s)
+    else:
+        edit(case/"system"/"blockMeshDict",
+             [(r"\(50 1 100\) simpleGrading \(0\.1 1 1\)",
+               f"({nr} 1 {nz}) simpleGrading (0.1 1 1)")])
     edit(case/"system"/"fvSchemes",
             [(r"^(\s+default\s+)backward;.*$", r"\g<1>BDF 4;")])
     edit(case/"system"/"controlDict",
@@ -141,7 +163,9 @@ def analyse(alpha, levels):
         if not finished(case):
             continue
         t, p = ports(case)
-        ex = an.exact_transient(alpha, t, A=an.A_WEDGE, R=an.R_EQ)
+        geo = dict(A=an.A, R=an.R) if FAMILY == "uniform" else \
+            dict(A=an.A_WEDGE, R=an.R_EQ)
+        ex = an.exact_transient(alpha, t, **geo)
         eP = max(math.sqrt(np.mean((p[k] - ex[k])**2))
                  / math.sqrt(np.mean(ex[k]**2)) for k in ("to3D.P", "from3D.P"))
         eQ = (math.sqrt(np.mean((p["to3D.Q"] - ex["to3D.Q"])**2))
@@ -149,8 +173,7 @@ def analyse(alpha, levels):
         prof = profiles(case)
         times = sorted(prof)
         r = prof[times[0]][0]
-        uex = an.exact_transient_profile(alpha, r, times, A=an.A_WEDGE,
-                                         R=an.R_EQ)
+        uex = an.exact_transient_profile(alpha, r, times, **geo)
         umax = np.abs(uex).max()
         eU = max(np.abs(prof[tk][1] - uex[i]).max() for i, tk in enumerate(times))/umax
         log = (case/"log.pimpleFoam").read_text()
@@ -160,7 +183,17 @@ def analyse(alpha, levels):
         rows.append((level, int(round(50*level)), int(round(100*level)),
                      eP, eQ, eU, iters/max(steps, 1),
                      float(ex_t[-1]) if ex_t else math.nan))
-    lines = [f"# Order in space of the Womersley segment, alpha = {alpha:g}",
+    geometry = (
+        "The wedge is scaled by sqrt(theta/sin theta) (its flat wall then "
+        "spans the cross-section pi R^2) and has no wall grading, so the "
+        "exact solution is that of the pipe of radius R, independent of the "
+        "mesh." if FAMILY == "uniform" else
+        "The exact solution is that of the circular pipe of the wedge's "
+        "cross-section (flat wall: 0.5 R^2 sin(theta) per wedge, R_eq = "
+        f"{an.R_EQ*1e3:.5f} mm); against the pipe of radius R the comparison "
+        "floors at 6e-5 whatever the mesh.")
+    lines = [f"# Order in space of the Womersley segment, alpha = {alpha:g}"
+             + (" (uniform mesh family)" if FAMILY == "uniform" else ""),
              "",
              f"Mesh refined as nr x nz; 0-{END} s from rest, BDF 4 and "
              f"coupling order 4 at dt = {DT*1e3:g} ms, linearised vessels at "
@@ -168,10 +201,7 @@ def analyse(alpha, levels):
              "pressures (max of the two) and flow, RMS over the window "
              "relative to the RMS of the exact signal; mid-length velocity "
              "profile, max over eight instants of max |u - u_exact| / max "
-             "|u_exact|. The exact solution is that of the circular pipe of "
-             "the wedge's cross-section (flat wall: 0.5 R^2 sin(theta) per "
-             f"wedge, R_eq = {an.R_EQ*1e3:.5f} mm); against the pipe of radius "
-             "R the comparison floors at 6e-5 whatever the mesh.", "",
+             "|u_exact|. " + geometry, "",
              "| nr x nz | P ports | order | Q | order | profile | order | "
              "PIMPLE it./step | time [s] |",
              "|---|---|---|---|---|---|---|---|---|"]
@@ -184,12 +214,13 @@ def analyse(alpha, levels):
         cells += [f"{r[6]:.1f}", f"{r[7]:.0f}"]
         lines.append("| " + " | ".join(cells) + " |")
     text = "\n".join(lines) + "\n"
-    (HERE/f"space_alpha{alpha:g}.md").write_text(text)
+    tag = f"alpha{alpha:g}" + ("_u" if FAMILY == "uniform" else "")
+    (HERE/f"space_{tag}.md").write_text(text)
     print(text)
-    plot(alpha, rows)
+    plot(alpha, rows, tag)
 
 
-def plot(alpha, rows):
+def plot(alpha, rows, tag):
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -207,13 +238,14 @@ def plot(alpha, rows):
     ax.set_xticklabels([f"{r[1]}x{r[2]}" for r in rows])
     ax.set_xlabel("mesh")
     ax.set_ylabel("error vs the exact transient")
-    ax.set_title(f"Womersley segment, alpha = {alpha:g}: order in space",
+    ax.set_title(f"Womersley segment, alpha = {alpha:g}: order in space"
+                 + (" (uniform mesh)" if FAMILY == "uniform" else ""),
                  fontsize=10)
     ax.legend(frameon=False, fontsize=8)
     ax.grid(alpha=0.3, which="both")
     fig.tight_layout()
     (HERE/"plots").mkdir(exist_ok=True)
-    fig.savefig(HERE/"plots"/f"space_alpha{alpha:g}.png", dpi=150)
+    fig.savefig(HERE/"plots"/f"space_{tag}.png", dpi=150)
 
 
 def main():
@@ -224,7 +256,12 @@ def main():
     ap.add_argument("--jobs", type=int, default=2)
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--dt", type=float, help=f"3D time step in place of {DT} (a time-error check; the runs get a _dt suffix and are not analysed here)")
+    ap.add_argument("--family", default="graded", choices=["graded", "uniform"],
+                    help="graded: the tutorial's wedge; uniform: no wall "
+                    "grading, cross-section pi R^2 (runs space_alpha*_u_x*)")
     args = ap.parse_args()
+    global FAMILY
+    FAMILY = args.family
     levels = [float(x) for x in args.levels.split(",")]
     if args.what == "run":
         RUNS.mkdir(exist_ok=True)
