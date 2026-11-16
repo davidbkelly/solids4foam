@@ -109,6 +109,44 @@ different problem, and the statement of what the soft coupling's buffer does
 impedance at high frequency) rather than that it "reduces spurious
 reflections".
 
+## The step input: limiters and the unlimited schemes
+
+`limiterStudy.py` (`limiters.md`, `plots/limiters.png`) runs the step case
+1D-only (the pipe as an inertance node, c0 = 3.5 m/s, linearised) with the
+MUSCL reconstruction and each limiter (minmod, vanLeer, MC, none) under
+SSPRK2, and with the unlimited k-exact reconstructions of degree 2 (SSPRK3)
+and 3 (RK4), at CFL 0.5 on 100 and 400 cells, against the exact
+delay-equation solution, whose flow has a jump at every round trip
+(amplified to 2.27 times the inflow) and whose total variation over 0.5 s
+is 19.1 times the inflow:
+
+| cells | scheme | overshoot / inflow | TV / TV exact | RMS error / inflow | max error / inflow |
+|---|---|---|---|---|---|
+| 100 | minmod | -0.003 | 0.859 | 1.55e-02 | 6.73e-02 |
+| 100 | vanLeer | -0.001 | 0.929 | 1.08e-02 | 4.69e-02 |
+| 100 | MC | -0.001 | 0.951 | 1.10e-02 | 4.98e-02 |
+| 100 | none | -0.000 | 0.968 | 1.17e-02 | 5.08e-02 |
+| 100 | kExact 2 | +0.000 | 0.969 | 4.00e-03 | 2.29e-02 |
+| 100 | kExact 3 | +0.000 | 0.999 | 2.37e-03 | 2.00e-02 |
+| 400 | minmod | -0.000 | 0.953 | 4.62e-03 | 2.53e-02 |
+| 400 | vanLeer | -0.000 | 0.984 | 3.00e-03 | 2.31e-02 |
+| 400 | MC | -0.000 | 0.992 | 3.13e-03 | 2.51e-02 |
+| 400 | none | -0.000 | 1.003 | 3.48e-03 | 2.74e-02 |
+| 400 | kExact 2 | +0.000 | 0.996 | 8.86e-04 | 1.05e-02 |
+| 400 | kExact 3 | +0.000 | 1.002 | 4.69e-04 | 6.54e-03 |
+
+No scheme overshoots the exact peak (the flow at the interface is set by
+the inductor's integration of the pressure, which smooths what the 1D
+scheme sends it). The limiters show as a deficit of total variation, the
+smeared jumps: 14 % with minmod and 5 % with MC at 100 cells, 5 % and 1 %
+at 400. The unlimited schemes keep the total variation within 0.3 % of
+the exact one (a ringing of that size behind each jump: `none` 1.003 and
+kExact 3 1.002 at 400 cells) and have a quarter to a sixth of the RMS
+error; the jumps themselves are resolved at first order in dx whatever
+the scheme (max error 2 to 7 % of the inflow at 100 cells, 0.7 to 2.7 % at
+400). On this problem the unlimited high-order reconstruction is the
+better choice; a limiter costs accuracy for no overshoot it would prevent.
+
 ## Order in time
 
 `../orderStudy.py --case dobroserdova2016` repeats the 3D run of the hard

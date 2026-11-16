@@ -341,6 +341,32 @@ against the vessels, dt/tau small), 11 on the rigid segment at dt = 0.5 ms
 algorithm without momentum predictor on the wall-graded mesh sets the
 count, not the coupling (the uncoupled pipe needs as many).
 
+## Phase 2
+
+### 9. The step input in the resonator: limiters (verified)
+
+`dobroserdova2016/limiterStudy.py` (12 1D runs, 1.5 minutes; `limiters.md`,
+`plots/limiters.png`): the step case 1D-only and linearised, MUSCL with
+minmod, vanLeer, MC and no limiter under SSPRK2, and the unlimited
+k-exact reconstructions of degree 2 (SSPRK3) and 3 (RK4), on 100 and 400
+cells at CFL 0.5, against the exact delay-equation solution (a jump at
+every round trip, total variation 19.1 x the inflow over 0.5 s).
+
+| cells | minmod | vanLeer | MC | none | kExact 2 | kExact 3 |
+|---|---|---|---|---|---|---|
+| 100: overshoot / inflow | -0.003 | -0.001 | -0.001 | -0.000 | +0.000 | +0.000 |
+| 100: TV / TV exact | 0.859 | 0.929 | 0.951 | 0.968 | 0.969 | 0.999 |
+| 100: RMS error / inflow | 1.55e-2 | 1.08e-2 | 1.10e-2 | 1.17e-2 | 4.00e-3 | 2.37e-3 |
+| 400: TV / TV exact | 0.953 | 0.984 | 0.992 | 1.003 | 0.996 | 1.002 |
+| 400: RMS error / inflow | 4.62e-3 | 3.00e-3 | 3.13e-3 | 3.48e-3 | 8.86e-4 | 4.69e-4 |
+
+No scheme overshoots the exact peak (the inductor integrates what the
+vessel sends it). The limiters show as a deficit of total variation (the
+smeared jumps: 14 % minmod, 5 % MC at 100 cells); the unlimited schemes
+ring by at most 0.3 % of the total variation and have a quarter to a
+sixth of the RMS error. The jumps are first order in dx for every scheme.
+Documented in the case README; no new limiter.
+
 ### 10. Reflection sign of the flow inlet (done)
 
 A prescribed flow reflects an incoming wave with Γ = +1 in pressure (−1 in
