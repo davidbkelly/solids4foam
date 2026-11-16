@@ -193,3 +193,21 @@ the 3D scheme's order on the network when the 3D discretisation has that
 order, which the cylinder shows, and that a non-orthogonal 3D mesh in
 pimpleFoam does not go beyond second order in time, whatever the ddt
 scheme.
+
+**The order study on the cylinder** (`../orderStudy.py --case
+thoracicAorta37 --cylinder`; `orders_cylinder.md`, `plots/orders_cylinder.png`):
+the same study with the cone replaced by the cylinder of its geometric-mean
+radius (10.107 mm), all four families, self-convergence of the port flow /
+port pressure:
+
+| dt triple [ms] | Euler | backward | BDF 3 | BDF 4 |
+|---|---|---|---|---|
+| 2 / 1 / 0.5 | 0.95 / 0.87 | 1.99 / 2.01 | 2.99 / 2.99 | 3.83 / 3.72 |
+| 1 / 0.5 / 0.25 | 0.98 / 0.94 | 2.00 / 2.01 | 3.02 / 3.02 | 3.82 / 3.91 |
+
+Every family at its order (the finest runs differ from the finest BDF 4
+run by 2.4e-3, 1.5e-5 and 3.4e-7 of the flow for Euler, backward and
+BDF 3). This is the table to quote for the network: the coupling takes
+the 3D scheme's order in a physiological network when the 3D mesh is
+orthogonal; on the cone the result is limited by pimpleFoam on the
+non-orthogonal mesh (the table above and `floor.md`), not by the coupling.

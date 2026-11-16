@@ -86,6 +86,63 @@ another session when this work started (the 0D coupler
 scheme of PR #674). They are left untouched and are not part of the commits
 made here.
 
+## Housekeeping (second round, 2026-11-16)
+
+**Code state.** Every result of the first round was made from the
+working tree of `feature/circulation1D` at or before commit `726e5ec61`
+(the item 7 commit; the commits of the round are listed in the git log
+from `6045b6dcd` on). OpenFOAM: v2412 (`_8dbc61e11c-20241220`, OpenCFD
+patch 0) built with Apple clang on Apple silicon (this Mac, 14 cores);
+on xenosim the Ubuntu 22.04 package openfoam2412 (build string recorded
+below), gcc 11.4.
+
+**The BDF time scheme used by pimpleFoam is not committed.** Every
+`BDF 3` and `BDF 4` result of the fluid side (items 1, 2, 3, 4, 7, the
+FSI order study) loads `libsolids4FoamModels` through the controlDict's
+`libs` for the `bdfDdtScheme`. That scheme is not in any commit of this
+branch: it exists in the working tree as the untracked directory
+`src/solids4FoamModels/numerics/bdfDdtScheme/` (with one added line in
+`Make/files.openfoam`), from the other session's work on PR #674
+(`feature/bdfDdtMovingMesh`), and the three files differ from that
+branch's committed version (they are newer). Their SHA-256 (the files
+the results were made with):
+
+| file | sha256 |
+|---|---|
+| `bdfDdtScheme.C` | `789e4ec73a35cb855615f73fb9fbc7f2ad6ef9590ea3eb3b110165e5b11d705b` |
+| `bdfDdtScheme.H` | `ccdd203d7fd3e558b4531cfeb09f54c7a7c8356e47c48eefae5340d5477e4066` |
+| `bdfDdtSchemes.C` | `d2bd25907efe491b982314593890a4c454f675ebb51a33bf5317e3f962a81ee3` |
+
+The library that supplied it on this Mac is the scratch build
+`platform/lib/libsolids4FoamModels.dylib` of 5 November (the working
+tree's solids4FoamModels, with these files), loaded by pimpleFoam through
+`libs`; pimpleFoam itself is OpenFOAM's. For the paper's numbers to come
+from a committed state the scheme has to be committed (on the PR #674
+branch, or merged here): a decision for the author, since it is the
+other session's work.
+
+**The other session's changes are still uncommitted** (the 0D coupler
+`circulationCoupling`, `circulation0D` components, `circulationMeshMotion`,
+the `leftVentricle` 0D tutorial, `pressureInletOutletDdtCorrVelocity`,
+the BDF scheme above, `CHANGELOG.md`, `src/circulationModels/Allwmake`
+and README). None of them is in the commits of this work and none is
+needed by the 3D-1D cases except the BDF scheme.
+
+**The paper plan and the literature map** were not found on this machine
+(the paths in the instructions were placeholders); the work does not
+need them yet.
+
+**xenosim.** One node, 192 cores (191 idle on 16 November, one user's
+68-core jobs queued on `long`), Slurm partitions `main` (2 days), `long`
+(7 days), `verylong` (28 days), Ubuntu 22.04, OpenFOAM v2412 from the
+distribution package (`/usr/lib/openfoam/openfoam2412`), PETSc and
+Eigen from packages, no solids4foam. The clean HEAD (`git archive
+726e5ec61`) plus the three BDF files above is built there in
+`~/OpenFOAM/davidkelly-v2412/solids4foam-paper` (`env-paper.sh` sets
+the environment, `build.slurm` rebuilt it in 5 minutes on 16 cores);
+the job scripts of this round live in that directory. Jobs use at most
+80 cores in all.
+
 ## Phase 1
 
 ### 1. Fourth order against the exact solution (rigid segment, B1)
@@ -629,6 +686,14 @@ wants a 3D segment that does not reflect, i.e. a demonstration that the
 coupling is exact when the 3D side itself carries the wave; it does not
 replace the FSI segment, which is the physical case.
 
+**Decision (16 November): not built.** The paper's limitations state it
+in one sentence: the 3D solver is not tested along the direction of wave
+travel, since in the rigid and viscous segments the pressure wave
+crosses the 3D part instantaneously (incompressible) and in the FSI
+segment the wall carries it; a 3D segment that itself propagates the
+wave at the vessels' speed (a compressible fluid of matched impedance,
+or a long compliant segment resolved in 3D) is left for later work.
+
 ### An impedance (Robin) interface condition
 
 Not touched, as asked. For the record, the ingredient is already in the
@@ -639,3 +704,98 @@ would make the outer iteration converge in one pass for a rigid segment
 (the model problem's contraction factor dt/(a0 tau) becomes zero) and
 would be the natural place for an "impedance" condition. It is method
 development and changes the coupler, so it waits for a decision.
+
+## Second round (16 November 2026): the decisions on the first round
+
+Numbered as in the instructions of 16 November. Item 0 is the
+"Housekeeping (second round)" section above.
+
+### R3. Resonator with a smoothly ramped inflow (verified)
+
+`dobroserdova2016/makeCases.py` gains the inflow `smooth`, a Gaussian
+pulse `1e-7 exp(-(t - 0.105)^2/(2 sigma^2))` m3/s with sigma = 15 ms (7
+sigma from the start: 2e-11 of the peak at t = 0), beside the published
+sine and step, which are kept unchanged (the tutorial's Allrun now runs
+27 1D and 3 pimpleFoam cases; `results.md` gains the smooth rows).
+`orderStudy.py --case dobroserdova2016 --exact --inflow smooth` (20 runs,
+13 minutes with 3 at a time; `orders_smooth_linear.md`,
+`plots/orders_smooth_linear.png`): the hard-coupling 3D run with
+linearised fourth-order vessels against the delay-equation solution,
+which is now smooth. RMS error / RMS of the signal, port flow (pressure
+the same to two digits):
+
+| dt [ms] | Euler | backward | BDF 3 | BDF 4 |
+|---|---|---|---|---|
+| 2 | 1.59e-1 | 1.73e-2 | 1.59e-3 | 1.55e-4 |
+| 1 | 1.55e-1 | 4.16e-3 | 1.94e-4 | 9.02e-6 |
+| 0.5 | 8.14e-2 | 9.26e-4 | 2.20e-5 | 5.25e-7 |
+| 0.25 | 4.12e-2 | 2.31e-4 | 2.74e-6 | 3.31e-8 |
+| 0.125 | 2.07e-2 | 5.77e-5 | 3.44e-7 | 2.53e-9 |
+| orders | 0.04, 0.93, 0.98, 0.99 | 2.06, 2.17, 2.01, 2.00 | 3.03, 3.14, 3.00, 3.00 | 4.11, 4.10, 3.99, 3.71 |
+
+Every family at its nominal order against the exact solution to the
+finest step, with no floor above 2.5e-9 (BDF 4's last pair, 3.71, is
+where the 1D vessel's error and round-off begin); the self-convergence
+orders of the same runs are 0.98, 2.01, 3.00, 4.00 on the finest
+triple. This replaces item 2's resonator table as the paper's
+time-order evidence: the sine's floors (2.2e-6 in Q, 5.3e-4 in P) were
+the problem's jumps, as item 2 said, and the smooth pulse shows the
+schemes without them. The published sine and step stay in the paper for
+the comparison with Dobroserdova et al.
+
+### R4. Exact solutions independent of the mesh: the cost (awaiting the go-ahead)
+
+**What changes.** The 3D meshes of the rigid segment and the resonator
+(the same 32-gon pipe) get their vertex radius scaled by
+`sqrt(pi/(16 sin(pi/16)))` = 1.003220, and the wedge of the Womersley
+segment by `sqrt(theta/sin theta)` = 1.000635 (theta = 5 degrees), so
+that every patch has the area `pi R^2` of the vessels and the closed
+forms use `pi R^2` only. `A3D` and `A_WEDGE`/`R_EQ` disappear from
+`dobroserdova2016/analyse.py`, `womersleySegment/analyse.py`,
+`benchmarks3D1D.py` and `orderStudy.py`; the benchmark tables 1, 1b and
+1c lose their "the area the mesh has" rows; the uniform mesh family of
+item R2 is already built this way (`spaceStudy.py --family uniform`).
+Since the pipe's inertance changes by 0.3 to 0.6 %, every number of
+every 3D table changes in its third digit, so all of them have to be
+regenerated, not only the exact-solution comparisons.
+
+**Cost of regenerating the headline tables** (from the logged wall
+times of the existing runs, serial unless stated):
+
+| table | runs | serial time | notes |
+|---|---|---|---|
+| rigid segment: `Allrun-sweep` (results.md: accuracy, stability, fine) | about 95 | 1.5 h | 6 at a time: 20 min |
+| rigid segment: `highOrder.py` self-convergence and `--linear` exact (highOrder.md, highOrder_linear.md), physiological reference | 41 | 2.2 h | 6 at a time: 40 min |
+| resonator: tutorial 3D runs, `orderStudy.py` (self, `--exact`, `--exact --inflow smooth`) | 63 | 1.5 h | 3 at a time: 35 min |
+| Womersley: tutorial alpha 3, 6, 12 (6 s each) | 3 | 2.5 h | 3 at once: 1 h |
+| Womersley: `orderStudy.py` (self and `--exact`) | 32 | 6 h | 3 at a time: 2 h |
+| Womersley: spatial order (R2's new family, counted there) | - | - | - |
+| Womersley: physiological reference (50 x 100 and 100 x 200, 1 s) | 2 | 4 h | the 100 x 200 run is the long pole (3.7 h with the graded mesh; about 1 h with R2's uniform mesh and settings) |
+| **total** | about 240 | **18 h** | **on this Mac 6 to 8 at a time: 4 to 5 h; on xenosim all at once (about 40 cores): about 4 h, set by the Womersley physiological run** |
+
+The FSI tube and the network are not affected (their meshes are not
+compared with a closed form). The first-round text of items 1, 2, 3, 7
+and the "what changed" bullets on the areas would be rewritten: the
+areas stop being a finding and become a rule of the specification
+("the 3D mesh must have the vessels' area"). Not started.
+
+### R9. The network's time order on the cylinder segment (verified)
+
+`orderStudy.py --case thoracicAorta37 --cylinder` (16 runs, 50 minutes
+with 2 at a time; `thoracicAorta37/orders_cylinder.md`,
+`plots/orders_cylinder.png`): the first-round order study (item 4's
+network, smooth start, CFL 0.1, p residual 1e-10) with the cone replaced
+by the cylinder of its geometric-mean radius (10.107 mm; `floorStudy.py`'s
+variant), all four families. Self-convergence orders, port flow / port
+pressure:
+
+| dt triple [ms] | Euler | backward | BDF 3 | BDF 4 |
+|---|---|---|---|---|
+| 2 / 1 / 0.5 | 0.95 / 0.87 | 1.99 / 2.01 | 2.99 / 2.99 | 3.83 / 3.72 |
+| 1 / 0.5 / 0.25 | 0.98 / 0.94 | 2.00 / 2.01 | 3.02 / 3.02 | 3.82 / 3.91 |
+
+(The mid-plane flow and pressure of the 3D segment give the same orders.)
+For the paper this replaces the cone's table as the network's time-order
+result: the coupling takes the 3D scheme's order in the 37-artery network
+when the 3D mesh is orthogonal; the cone's BDF 3/4 floor is pimpleFoam's
+on a non-orthogonal mesh (item 4, `floor.md`), and is stated as such.
