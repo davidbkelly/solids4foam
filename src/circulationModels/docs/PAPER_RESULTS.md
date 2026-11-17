@@ -1183,3 +1183,32 @@ Both identified parts are fixes of defects in the February code, so for
 them the checkout build is the correct one. The paper's FSI numbers
 should come from the checkout build; the report's (installed-library)
 Formaggia numbers carry those defects.
+
+### R4 (go-ahead given 17 November). Meshes whose exact solutions are the plain pipe: running
+
+Set-up committed in `bebb98128`: the rigid pipe's O-grid scaled radially
+by 1.003222 (32-gon patch of area pi R^2; A3D = pi R^2 everywhere), the
+Womersley wedge with its face at distance R and flowScale
+pi/tan(theta/2) = 71.954 (the coupled problem is exactly the pipe of
+radius R). Validated before the reruns: B1 baseline 1.09e-3 against the
+pi R^2 closed form (the 1D error, as before); 25 x 50 uniform wedge
+1.37e-4 against the radius-R solution.
+
+Regeneration on xenosim from `bebb98128` + the BDF files (sha256 as in
+the housekeeping section), tree `~/OpenFOAM/davidkelly-v2412/solids4foam-r4`,
+35 cores alongside the running FSI refinement and bisect (73 of the 80):
+
+| job | what | cores |
+|---|---|---|
+| r4_B1 | rigidSegment3D: Allrun-sweep (accuracy, stability), highOrder.py (nonlinear, --linear, --linear --robin), --reference | 8 |
+| r4_B3 | dobroserdova2016: Allrun (incl. smooth), orderStudy self / --exact / --exact --inflow smooth, analyse.py --csv | 4 |
+| r4_B2tut | womersleySegment: Allrun (alpha 3, 6, 12 periodic state) | 3 |
+| r4_B2time | orderStudy womersleySegment self / --exact | 8 |
+| r4_B2space | spaceStudy graded alpha 6 (3 levels), uniform alpha 6 (3 levels), alpha 3 and 12 (2 levels) | 6 |
+| r4_B2phys | physiological.py (numerical reference, 2 levels) | 2 |
+| r4_B4ps | pulseSweep.py --planeStress: the long-pulse coupled runs with the 1D wall matched in plane stress (5.07 m/s), against the existing full tubes (FSI code unchanged between 726e5ec61 and bebb98128) | 4 |
+
+Expected wall time 7-8 h, set by the 100 x 200 graded Womersley run and
+the 100 x 200 physiological reference (about 7 h each on xenosim). The
+results will replace the tables of items 1, 2, 3, 7, R2, R3 and the
+benchmark specifications 1, 1b, 1c.
