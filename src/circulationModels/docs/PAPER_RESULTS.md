@@ -1104,3 +1104,61 @@ stress) and the structural end condition. Recommendation for the paper:
 quote the long-pulse case as the one in which the coupled-against-full
 comparison measures the coupling, and match the 1D wall to the long
 tube's long-wave speed.
+
+### R2 (concluded). The Womersley floor was the reference, not the solver (verified)
+
+The finest pair of the uniform family gave 1.68 on the ports, and the
+fourth level (200 x 400, 17 h on xenosim) 0.42. Checks at 100 x 200: the
+1D side refined (800 cells, CFL 0.25) changes the ports by 1e-8 and the
+time step halved by 1e-9, so neither is the cause. The error was linear
+(identical relative error at 50, 5 and 0.5 Pa, so not the convection
+term), and doubling the pipe length doubled it (so not an end effect at
+the ports): a per-length error in the segment's impedance, independent
+of the mesh.
+
+**Cause.** A wedge of angle theta with one cell across and a flat outer
+face at the distance R_c = R cos(theta/2) from the axis has, at every
+distance x from the axis, faces and volumes of width 2 x tan(theta/2)
+instead of the sector's x theta, a uniform factor k = 2 tan(theta/2)/theta
+= 1.000635. The axisymmetric finite-volume problem it discretises is
+therefore the circular pipe of radius R_c with every flux multiplied by
+k: Womersley's impedance of radius R_c divided by k (area k pi R_c^2 =
+A_WEDGE). The "equal-area pipe" used since the first round (radius
+sqrt(A_WEDGE/pi)) has the same inertance but a viscous resistance k
+times smaller, and the comparison floors at about 1e-5 against it. The
+profile sets also sampled 5 um beyond the flat face (r = 0.9995 R >
+R_c), which made the profile's maximum error sit at the wall.
+
+**With the correct reference** (`analyse.py: R_WEDGE, K_WEDGE`; used by
+`spaceStudy.py`, `orderStudy.py --exact` and `results.md`):
+
+| family | mesh | ports | order | profile (r <= R_c) | order |
+|---|---|---|---|---|---|
+| uniform, alpha 6 | 25 x 50 | 1.37e-04 | | 4.64e-02 | |
+| | 50 x 100 | 3.43e-05 | 1.99 | 2.54e-02 | 0.87 |
+| | 100 x 200 | 8.59e-06 | 2.00 | 1.48e-02 | 0.78 |
+| | 200 x 400 | 2.15e-06 | 2.00 | 8.54e-03 | 0.79 |
+| graded 10:1 (tutorial), alpha 6 | 25 x 50 | 3.11e-05 | | 6.74e-03 | |
+| | 50 x 100 | 7.80e-06 | 1.99 | 8.56e-04 | 2.98 |
+| | 100 x 200 | 1.96e-06 | 2.00 | 1.86e-04 | 2.20 |
+| graded, alpha 3 | 25 x 50 / 50 x 100 | 5.82e-05 / 1.43e-05 | 2.02 | 7.69e-03 / 2.19e-03 | 1.81 |
+| graded, alpha 12 | 25 x 50 / 50 x 100 | 2.67e-05 / 6.88e-06 | 1.95 | 1.40e-02 / 1.79e-03 | 2.97 |
+
+The ports converge at second order on both families at every alpha, to
+2e-6 of the signal. So the first-round statement that the 100 x 200
+graded mesh "is limited by the outer loop ... about 5e-6, not the mesh's"
+was wrong: that was the reference's floor too (the PIMPLE stall, 45
+passes per step, is a cost, not an accuracy limit). The profile
+converges at second order or better on the graded mesh; on the uniform
+mesh its maximum sits in the first cell at the wall, where the sampling
+interpolates linearly between the wall value and the first cell centre
+(first order), and should be measured on cell values instead.
+
+Periodic state of the tutorial runs against the correct reference:
+amplitudes 6.7e-6 to 8.0e-6 (alpha 6 and 12) and 1.1-1.3e-5 (alpha 3),
+phases 0.0002-0.0004 degrees (essentially the first round's numbers,
+since the periodic state is dominated by the inertance). Time order
+against the exact transient (alpha 6, 50 x 100 graded): Euler 0.99-1.00
+to the finest step; backward 1.99 before the floor; BDF 3/4 at the floor
+from the coarsest step; the floor, 7.1e-6, is the spatial error of this
+mesh (7.8e-6 in the space study over the 1 s window).

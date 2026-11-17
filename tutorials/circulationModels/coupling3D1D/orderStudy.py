@@ -256,7 +256,7 @@ def exact_signals(case_name, t):
         return {"to3D.Q": (t, Q), "to3D.P": (t, P)}
     if case_name == "womersleySegment":
         # the circular pipe of the wedge's cross-section (see its README)
-        ex = an.exact_transient(6.0, t, A=an.A_WEDGE, R=an.R_EQ)
+        ex = an.exact_transient(6.0, t, A=an.A_WEDGE, R=an.R_WEDGE)
         return {k: (t, x) for k, x in ex.items()}
     raise SystemExit(f"{case_name} has no exact solution")
 

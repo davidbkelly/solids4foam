@@ -58,17 +58,25 @@ def exact(alpha):
     return out
 
 
-# The flat-walled wedge of the tutorial's mesh has the cross-section
-# 0.5 R^2 sin(theta) per wedge (theta = 5 degrees), 0.99873 of its share of
-# pi R^2, with the wall vertices at R: the 3D problem solved is closest to
-# the circular pipe of the same area, radius R_EQ = R sqrt(sin(theta)/theta).
+# What the wedge mesh discretises. A wedge of angle theta with one cell
+# across and a flat outer face at the distance R_c = R cos(theta/2) from the
+# axis (its edge vertices at R) has, at every distance x from the axis,
+# faces and volumes of width 2 x tan(theta/2) instead of the sector's
+# x theta: a uniform factor k = 2 tan(theta/2)/theta. The axisymmetric
+# finite-volume problem is therefore the circular pipe of radius R_c with
+# every flux multiplied by k: Womersley's impedance of the pipe of radius
+# R_c divided by k, i.e. exact_transient(A = k pi R_c^2 = A_WEDGE,
+# R = R_c). The equal-area pipe (radius sqrt(A_WEDGE/pi)) has the same
+# inertance but a viscous resistance k times smaller; against it the
+# comparison floors at about 1e-5 (the first round used it, wrongly).
 # exact_transient() and exact_transient_profile() take the pipe's area and
-# radius as arguments (defaults: pi R^2 and R); the space study uses the
-# equal-area pipe.
+# radius as arguments (defaults: pi R^2 and R).
 import math as _math
 THETA = _math.radians(5.0)
-A_WEDGE = (360/5.0)*0.5*R**2*_math.sin(THETA)
-R_EQ = _math.sqrt(A_WEDGE/_math.pi)
+K_WEDGE = 2*_math.tan(THETA/2)/THETA
+A_WEDGE = (360/5.0)*0.5*R**2*_math.sin(THETA)       # = K_WEDGE pi R_WEDGE^2
+R_WEDGE = R*_math.cos(THETA/2)
+R_EQ = _math.sqrt(A_WEDGE/_math.pi)                 # the equal-area pipe (not used)
 
 
 def impedance(w, alpha, A=A, R=R):
@@ -230,17 +238,17 @@ def main():
                 f"| {key} [{unit}] | {abs(X):.4g} / {abs(W):.4g} / {abs(I):.4g} "
                 f"| {ph(X):.2f} / {ph(W):.2f} / {ph(I):.2f} "
                 f"| {abs(X - W)/abs(W):.2e} | {dph:.3f} |")
-        # The same against the circular pipe of the wedge's cross-section
-        # (flat wall: 0.5 R^2 sin(theta) per wedge; R_EQ): what the mesh
-        # actually represents
-        lam = 1j**1.5*R_EQ*math.sqrt(OMEGA/nu(alpha))
+        # The same against the problem the wedge discretises: the pipe of
+        # radius R_WEDGE with its flux times K_WEDGE (area A_WEDGE)
+        lam = 1j**1.5*R_WEDGE*math.sqrt(OMEGA/nu(alpha))
         f10 = 2*jv(1, lam)/(lam*jv(0, lam))
         Zeq = 1j*OMEGA*RHO*L3D/(A_WEDGE*(1 - f10))
         geq, Teq = Zeq/(Zeq + 2*ZC), 2*ZC/(Zeq + 2*ZC)
         pinc = -1j*P_INC*cmath.exp(-1j*OMEGA*L1D/C0)
         exeq = {"P_in": (1 + geq)*pinc, "Q": Teq*pinc/ZC, "P_out": Teq*pinc}
-        lines += [f"Against the pipe of the wedge's cross-section (R_eq = "
-                  f"{R_EQ*1e3:.5f} mm, 0.99873 pi R^2): " + ", ".join(
+        lines += [f"Against the problem the wedge discretises (the pipe of "
+                  f"radius R cos(theta/2) = {R_WEDGE*1e3:.5f} mm, flux x "
+                  f"{K_WEDGE:.6f}): " + ", ".join(
                       f"{k} {abs(fitted[k] - exeq[k])/abs(exeq[k]):.1e} / "
                       f"{(math.degrees(cmath.phase(fitted[k]/exeq[k])) + 180) % 360 - 180:.4f} deg"
                       for k in ("P_in", "Q", "P_out")), ""]

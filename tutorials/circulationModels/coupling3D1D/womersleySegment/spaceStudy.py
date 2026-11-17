@@ -163,8 +163,11 @@ def analyse(alpha, levels):
         if not finished(case):
             continue
         t, p = ports(case)
-        geo = dict(A=an.A, R=an.R) if FAMILY == "uniform" else \
-            dict(A=an.A_WEDGE, R=an.R_EQ)
+        # the problem the wedge discretises (see analyse.py): the pipe of
+        # the face distance R_c, flux times k; the uniform family is scaled
+        # so that k pi R_c^2 = pi R^2
+        geo = dict(A=an.A, R=an.R_WEDGE*SCALE_U) if FAMILY == "uniform" else \
+            dict(A=an.A_WEDGE, R=an.R_WEDGE)
         ex = an.exact_transient(alpha, t, **geo)
         eP = max(math.sqrt(np.mean((p[k] - ex[k])**2))
                  / math.sqrt(np.mean(ex[k]**2)) for k in ("to3D.P", "from3D.P"))
@@ -173,9 +176,12 @@ def analyse(alpha, levels):
         prof = profiles(case)
         times = sorted(prof)
         r = prof[times[0]][0]
+        inside = r <= geo["R"]           # the set's last points lie beyond
+        r = r[inside]                    # the flat outer face
         uex = an.exact_transient_profile(alpha, r, times, **geo)
         umax = np.abs(uex).max()
-        eU = max(np.abs(prof[tk][1] - uex[i]).max() for i, tk in enumerate(times))/umax
+        eU = max(np.abs(prof[tk][1][inside] - uex[i]).max()
+                 for i, tk in enumerate(times))/umax
         log = (case/"log.pimpleFoam").read_text()
         steps = len(re.findall(r"^Time = ", log, re.M))
         iters = len(re.findall(r"^PIMPLE: iteration", log, re.M))
@@ -184,14 +190,15 @@ def analyse(alpha, levels):
                      eP, eQ, eU, iters/max(steps, 1),
                      float(ex_t[-1]) if ex_t else math.nan))
     geometry = (
-        "The wedge is scaled by sqrt(theta/sin theta) (its flat wall then "
-        "spans the cross-section pi R^2) and has no wall grading, so the "
-        "exact solution is that of the pipe of radius R, independent of the "
-        "mesh." if FAMILY == "uniform" else
-        "The exact solution is that of the circular pipe of the wedge's "
-        "cross-section (flat wall: 0.5 R^2 sin(theta) per wedge, R_eq = "
-        f"{an.R_EQ*1e3:.5f} mm); against the pipe of radius R the comparison "
-        "floors at 6e-5 whatever the mesh.")
+        "The wedge has no wall grading and is scaled by sqrt(theta/sin "
+        "theta), so that its cross-section is pi R^2. The exact solution is "
+        "that of the problem the wedge discretises: the pipe of radius "
+        f"R_c = {an.R_WEDGE*SCALE_U*1e3:.5f} mm (the flat face's distance "
+        f"from the axis) with every flux times k = {an.K_WEDGE:.6f} "
+        "(analyse.py); the profile is compared for r <= R_c." if FAMILY == "uniform" else
+        "The exact solution is that of the problem the wedge discretises: the "
+        f"pipe of radius R_c = R cos(theta/2) = {an.R_WEDGE*1e3:.5f} mm with "
+        f"every flux times k = {an.K_WEDGE:.6f} (analyse.py).")
     lines = [f"# Order in space of the Womersley segment, alpha = {alpha:g}"
              + (" (uniform mesh family)" if FAMILY == "uniform" else ""),
              "",
