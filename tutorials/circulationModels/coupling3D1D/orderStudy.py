@@ -252,11 +252,11 @@ def exact_signals(case_name, t):
     import analyse as an                                    # noqa: E402
     sys.path.pop(0)
     if case_name == "dobroserdova2016":
-        Q, P = an.exact(INFLOW, 3.5, "hard", t, pipeArea=an.A3D, n2=64000)
+        Q, P = an.exact(INFLOW, 3.5, "hard", t, pipeArea=an.A3D, n2=64000)   # A3D = pi R^2
         return {"to3D.Q": (t, Q), "to3D.P": (t, P)}
     if case_name == "womersleySegment":
         # the circular pipe of the wedge's cross-section (see its README)
-        ex = an.exact_transient(6.0, t, A=an.A_WEDGE, R=an.R_WEDGE)
+        ex = an.exact_transient(6.0, t)          # the pipe of radius R (see womersleySegment/makeCases.py)
         return {k: (t, x) for k, x in ex.items()}
     raise SystemExit(f"{case_name} has no exact solution")
 

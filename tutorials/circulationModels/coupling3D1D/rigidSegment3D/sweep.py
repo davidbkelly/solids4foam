@@ -43,7 +43,7 @@ A0 = math.pi*0.01**2
 BETA = 4.0/3.0*math.sqrt(math.pi)*400e3*1.5e-3
 C0 = math.sqrt(BETA/(2*RHO*A0))*A0**0.25
 Z0 = RHO*C0/A0
-A3D = 0.5*32*0.01**2*math.sin(2*math.pi/32)     # the 32-sided patch polygon
+A3D = math.pi*0.01**2       # the 32-sided patch polygon, scaled to the area pi R^2
 TAU = RHO*0.08/A3D/(2*Z0)
 
 DTS = [4e-3, 2e-3, 1e-3, 5e-4, 2.5e-4]

@@ -56,9 +56,10 @@ INFLOWS = {
                0.5, 5e-4),
 }
 LIND = RHO*L3D/A                # inductance of the rigid pipe [kg/m4]
-A3D = 0.5*32*R**2*math.sin(2*math.pi/32)     # the 32-sided patch polygon of
-                                # the 3D pipe (0.9936 pi R^2): its inductance
-                                # is RHO*L3D/A3D
+A3D = A                         # the 32-sided patch polygon of the rigidSegment3D
+                                # mesh, scaled to the area pi R^2 (it was
+                                # 0.9936 pi R^2 before 17 November 2026): the
+                                # 3D pipe's inductance RHO*L3D/A3D = LIND
 
 
 def youngs(c0):

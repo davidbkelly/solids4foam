@@ -43,8 +43,20 @@ LENGTH_M = {3: 0.15, 6: 0.20, 12: 0.20, 24: 0.25}   # the full tube
 MARGIN = 0.030                                       # window = T + margin
 
 
+C0 = None          # --c0: the 1D wave speed (default: the static plane-strain match)
+
+
 def c0():
-    return mc.c0_plane_strain()
+    return C0 if C0 else mc.c0_plane_strain()
+
+
+def c0_plane_stress():
+    """The static match of a thick cylinder with free ends (generalised
+    plane stress), the long-wave speed of the long tube away from its
+    clamped inlet"""
+    a, b = mc.R, mc.R + mc.H
+    u_over_p = a*((1 - mc.NU)*a*a + (1 + mc.NU)*b*b)/(mc.E*(b*b - a*a))
+    return (math.pi*a*a/(mc.RHO*2*math.pi*a*u_over_p))**0.5
 
 
 def names(T_ms):
@@ -182,7 +194,7 @@ def analyse(durations):
                          f"{best[0]/mc.PULSE:.1e}")
         lines.append(f"| {T_ms:g} | {c3:.2f} | " + " | ".join(cells) + " |")
     text = "\n".join(lines) + "\n"
-    (HERE/"pulse.md").write_text(text)
+    (HERE/("pulse_planeStress.md" if C0 else "pulse.md")).write_text(text)
     print(text)
     plot(rows, series)
 
@@ -222,7 +234,7 @@ def plot(rows, series):
     ax.grid(alpha=0.3)
     fig.tight_layout()
     (HERE/"plots").mkdir(exist_ok=True)
-    fig.savefig(HERE/"plots"/"pulse.png", dpi=150)
+    fig.savefig(HERE/"plots"/("pulse_planeStress.png" if C0 else "pulse.png"), dpi=150)
 
 
 def main():
@@ -232,7 +244,13 @@ def main():
     ap.add_argument("--jobs", type=int, default=2, help="runs at a time")
     ap.add_argument("--ranks", type=int, default=4, help="ranks of the full-tube runs")
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--planeStress", action="store_true",
+                    help="1D wall matched in plane stress (c0 = 5.07 m/s) instead "
+                    "of plane strain; the full tubes are shared")
     args = ap.parse_args()
+    global C0
+    if args.planeStress:
+        C0 = c0_plane_stress()
     durations = [float(x) for x in args.durations.split(",")]
     durations = [int(x) if x == int(x) else x for x in durations]
     if args.what in ("run", "setup"):

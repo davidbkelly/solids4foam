@@ -40,7 +40,14 @@ A = math.pi*R**2
 L3D = 0.1
 L1D = 1.0
 WEDGE_DEG = 5.0
-FLOW_SCALE = 360.0/WEDGE_DEG
+# The wedge (one cell across, flat outer face at distance R from the axis)
+# has, at every distance x from the axis, faces and volumes of width
+# 2 x tan(theta/2) where the sector has x theta: every flux of the
+# axisymmetric finite-volume problem is k = 2 tan(theta/2)/theta times that
+# of the circular pipe of radius R. Scaling the patch flux by
+# 2 pi/(k theta) = pi/tan(theta/2) (not 360/theta) makes the coupled problem
+# exactly the pipe of radius R: the exact solution is Womersley's for R.
+FLOW_SCALE = math.pi/math.tan(math.radians(WEDGE_DEG)/2)
 F = 1.0                                 # Hz
 OMEGA = 2*math.pi*F
 P_INC = 50.0                            # Pa, incident wave amplitude

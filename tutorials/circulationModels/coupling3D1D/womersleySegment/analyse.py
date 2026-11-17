@@ -58,7 +58,10 @@ def exact(alpha):
     return out
 
 
-# What the wedge mesh discretises. A wedge of angle theta with one cell
+# What the wedge mesh discretises (the tutorial's wedge now has its face at
+# distance R and the patch flux scaled by pi/tan(theta/2), which makes the
+# coupled problem the pipe of radius R exactly; the constants below describe
+# a wedge with its edge vertices at R, as before 17 November 2026). A wedge of angle theta with one cell
 # across and a flat outer face at the distance R_c = R cos(theta/2) from the
 # axis (its edge vertices at R) has, at every distance x from the axis,
 # faces and volumes of width 2 x tan(theta/2) instead of the sector's

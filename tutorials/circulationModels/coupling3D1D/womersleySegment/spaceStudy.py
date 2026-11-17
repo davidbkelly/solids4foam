@@ -46,7 +46,6 @@ FAMILY = "graded"      # --family: graded (the tutorial's 10:1 wall grading,
                        # wedge scaled by sqrt(theta/sin theta) so that its
                        # cross-section is pi R^2 and the exact solution is
                        # that of the pipe of radius R, independent of the mesh)
-SCALE_U = math.sqrt(math.radians(mc.WEDGE_DEG)/math.sin(math.radians(mc.WEDGE_DEG)))
 
 
 def name(alpha, level, dt=None):
@@ -75,19 +74,9 @@ def setup(alpha, level, force=False, dt=None):
     mc.make(alpha, dt, True, name=case.name, end=END)
     nr, nz = int(round(50*level)), int(round(100*level))
     if FAMILY == "uniform":
-        bm = case/"system"/"blockMeshDict"
-        s = bm.read_text()
-        for key, val in (("Rc", 0.00999048), ("Rs", 0.000436194),
-                         ("nRs", -0.000436194)):
-            s, n = re.subn(rf"^{key}\s+{val:g};", f"{key}  {val*SCALE_U:.8g};",
-                           s, count=1, flags=re.M)
-            assert n == 1, key
-        s = s.replace("(50 1 100) simpleGrading (0.1 1 1)",
-                      f"({nr} 1 {nz}) simpleGrading (1 1 1)")
-        s = s.replace("// R cos(2.5 deg), R sin(2.5 deg)",
-                      "// R cos(2.5 deg), R sin(2.5 deg), times sqrt(theta/sin theta):\n"
-                      "// the flat-walled wedge then has the cross-section pi R^2 / 72")
-        bm.write_text(s)
+        edit(case/"system"/"blockMeshDict",
+             [(r"\(50 1 100\) simpleGrading \(0\.1 1 1\)",
+               f"({nr} 1 {nz}) simpleGrading (1 1 1)")])
     else:
         edit(case/"system"/"blockMeshDict",
              [(r"\(50 1 100\) simpleGrading \(0\.1 1 1\)",
@@ -166,8 +155,7 @@ def analyse(alpha, levels):
         # the problem the wedge discretises (see analyse.py): the pipe of
         # the face distance R_c, flux times k; the uniform family is scaled
         # so that k pi R_c^2 = pi R^2
-        geo = dict(A=an.A, R=an.R_WEDGE*SCALE_U) if FAMILY == "uniform" else \
-            dict(A=an.A_WEDGE, R=an.R_WEDGE)
+        geo = dict(A=an.A, R=an.R)        # the wedge with flowScale pi/tan(theta/2) is the pipe of radius R
         ex = an.exact_transient(alpha, t, **geo)
         eP = max(math.sqrt(np.mean((p[k] - ex[k])**2))
                  / math.sqrt(np.mean(ex[k]**2)) for k in ("to3D.P", "from3D.P"))
@@ -176,8 +164,8 @@ def analyse(alpha, levels):
         prof = profiles(case)
         times = sorted(prof)
         r = prof[times[0]][0]
-        inside = r <= geo["R"]           # the set's last points lie beyond
-        r = r[inside]                    # the flat outer face
+        inside = r <= geo["R"]           # the set ends 5 um inside the face
+        r = r[inside]
         uex = an.exact_transient_profile(alpha, r, times, **geo)
         umax = np.abs(uex).max()
         eU = max(np.abs(prof[tk][1][inside] - uex[i]).max()
@@ -190,15 +178,11 @@ def analyse(alpha, levels):
                      eP, eQ, eU, iters/max(steps, 1),
                      float(ex_t[-1]) if ex_t else math.nan))
     geometry = (
-        "The wedge has no wall grading and is scaled by sqrt(theta/sin "
-        "theta), so that its cross-section is pi R^2. The exact solution is "
-        "that of the problem the wedge discretises: the pipe of radius "
-        f"R_c = {an.R_WEDGE*SCALE_U*1e3:.5f} mm (the flat face's distance "
-        f"from the axis) with every flux times k = {an.K_WEDGE:.6f} "
-        "(analyse.py); the profile is compared for r <= R_c." if FAMILY == "uniform" else
-        "The exact solution is that of the problem the wedge discretises: the "
-        f"pipe of radius R_c = R cos(theta/2) = {an.R_WEDGE*1e3:.5f} mm with "
-        f"every flux times k = {an.K_WEDGE:.6f} (analyse.py).")
+        ("The wedge has no wall grading. " if FAMILY == "uniform" else "")
+        + "With its flat face at the distance R from the axis and the patch "
+        "flux scaled by pi/tan(theta/2), the discrete problem is the circular "
+        "pipe of radius R exactly; the exact solution is Womersley's for R, "
+        "independent of the mesh.")
     lines = [f"# Order in space of the Womersley segment, alpha = {alpha:g}"
              + (" (uniform mesh family)" if FAMILY == "uniform" else ""),
              "",

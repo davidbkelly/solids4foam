@@ -213,7 +213,7 @@ class RigidSegment:
         # The pipe's cross-section: the discrete patch area of the 3D mesh
         # (the tutorial's 32-sided polygon by default), or pi R^2 for a 1D
         # reduction of the pipe
-        self.A3D = A3D if A3D is not None else 0.5*32*self.R**2*math.sin(2*math.pi/32)
+        self.A3D = A3D if A3D is not None else math.pi*self.R**2   # the tutorial's mesh has pi R^2
         self.scale = scale
         self.A0 = math.pi*self.R**2
         beta = 4/3*math.sqrt(math.pi)*self.E*self.h

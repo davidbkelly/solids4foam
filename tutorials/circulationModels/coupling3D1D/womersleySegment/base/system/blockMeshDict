@@ -17,10 +17,12 @@ scale 1;
 
 R   0.01;
 L   0.1;
-// R cos(2.5 deg), R sin(2.5 deg)
-Rc  0.00999048;
-Rs  0.000436194;
-nRs -0.000436194;
+// The flat outer face at the distance R from the axis (Rc = R, Rs = R tan(2.5 deg)):
+// with flowScale pi/tan(theta/2) the discrete problem is the circular pipe
+// of radius R exactly (see makeCases.py)
+Rc  0.01;
+Rs  0.000436609429;
+nRs -0.000436609429;
 
 vertices
 (
