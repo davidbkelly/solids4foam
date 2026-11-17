@@ -1051,3 +1051,56 @@ clean yet and are being checked:
   with the 1D side refined (800 cells, CFL 0.25) and with the time step
   halved; a fourth level, 200 x 400, runs on the long partition (about
   a day). Whichever moves the late-time error names the floor.
+
+### R6. The FSI tube with pulses of increasing length (verified)
+
+`formaggia2007/pulseSweep.py run` on xenosim (8 runs, 13 h on 20 cores;
+`pulse.md`, `plots/pulse.png`): smooth sin^2 pulses of 1333 Pa and
+duration T = 3, 6, 12, 24 ms (R/(c0 T) = 0.32, 0.16, 0.079, 0.040) on the
+full FSI tube (15, 20, 20, 25 cm, p = 0 at the far end, long enough that
+no fluid wave returns within the window T + 30 ms) and on the coupled
+5 cm tube + 1D vessel (clamped wall end, c0 = 5.25 m/s, the static
+plane-strain match), dt = 25 us, checkout build of solids4foam.
+
+**The plain RMS difference does not fall cleanly with pulse length**
+(max over the 3D part 3.1, 4.0, 4.0, 3.1 % of the pulse; at z = 12.5 cm
+11.4, 14.0, 10.4, 6.9 %). Split into its parts, it does where it should
+and two other parts remain, both identified:
+
+| T [ms] | R/(c0 T) | full tube c, z 1.25-5 / 5-12.5 cm [m/s] | peak ratio coupled/full at 12.5 cm | shift that aligns at 12.5 cm [ms] | RMS after the shift, 12.5 cm | max RMS, 3D part (z <= 5) |
+|---|---|---|---|---|---|---|
+| 3 | 0.317 | 3.77 (dispersed) | 1.377 | 1.65 | 3.8e-2 | 3.1e-2 |
+| 6 | 0.159 | 5.09 / 5.17 | 1.323 | 1.55 | 5.8e-2 | 4.0e-2 |
+| 12 | 0.079 | 5.02 / 5.11 | 1.129 | 1.15 | 4.4e-2 | 4.0e-2 |
+| 24 | 0.040 | 5.25 / 5.06 | 1.021 | 1.17 | 1.6e-2 | 3.1e-2 |
+
+1. **Dispersion (falls, as expected).** The thick wall's inertia
+   disperses short pulses, which the 1D model cannot: the coupled run's
+   peak at z = 12.5 cm is 38 % above the full tube's for 3 ms and 2 %
+   for 24 ms, and the shape difference left after aligning the arrival
+   falls to 1.6 %. This is the long-wave mismatch, and it goes as the
+   pulse lengthens.
+2. **Wave speed of the static match (does not fall).** In the 1D part
+   the coupled pulse arrives 1.2 ms early at z = 12.5 cm for every
+   pulse of 12 ms or more. Away from the clamped inlet the long-pulse
+   wave speed of the full tube is 5.06-5.11 m/s, the static match of a
+   thick cylinder with free ends (generalised plane stress, 5.07 m/s);
+   near the clamped inlet it is 5.25 m/s, the plane-strain match used
+   for the 1D. So for long pulses the 1D vessel is 3.7 % too fast,
+   which is a choice of the wall match (plane strain), not a coupling
+   error and not dispersion; matching plane stress would remove it.
+   (Inferred from the measured speeds and the two static formulas; not
+   rerun.)
+3. **The cut end of the wall (does not fall).** In the 3D part (z <= 5
+   cm) the difference is 2-4 % of the pulse at every pulse length, with
+   no arrival shift: it is the clamped condition on the wall's cut end
+   (items 8a and R5), which does not depend on the wavelength.
+
+So the expectation holds for the part it concerns: the model mismatch of
+the 3 ms pulse (R/(c0 T) = 0.3) is mostly dispersion and falls by a
+factor of about 20 in peak and 3 in shape by R/(c0 T) = 0.04. What
+remains at long pulses is the wall match (fixable by matching plane
+stress) and the structural end condition. Recommendation for the paper:
+quote the long-pulse case as the one in which the coupled-against-full
+comparison measures the coupling, and match the 1D wall to the long
+tube's long-wave speed.

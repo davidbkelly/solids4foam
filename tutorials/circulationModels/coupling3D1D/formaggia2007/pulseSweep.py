@@ -156,6 +156,31 @@ def analyse(durations):
     for r in rows:
         lines.append(f"| {r[0]:g} | " + " | ".join(
             f"{r[5][z][0]:.0f} / {r[5][z][1]:.0f}" if z in r[5] else "-" for z in zs) + " |")
+    # The difference split: the full tube's wave speed (half-peak arrival
+    # over z = 1.25-5 cm) against the 1D c0; at each section the peak ratio,
+    # the time shift that best aligns the coupled signal with the full one,
+    # and the RMS difference left after that shift (shape and amplitude)
+    lines += ["", "The difference split. c_3D: the full tube's wave speed from "
+              "the half-peak arrivals at z = 1.25-5 cm (1D: "
+              f"{c0():.3g} m/s). At each section: peak ratio coupled / full; "
+              "best-aligning time shift [ms]; RMS / pulse after the shift.", "",
+              "| T [ms] | c_3D [m/s] | " + " | ".join(f"z = {z:g}" for z in zs) + " |",
+              "|---|---|" + "---|"*len(zs)]
+    for T_ms in sorted(series):
+        ref, s = series[T_ms]
+        c3, _, _ = an.wave_speed({z: ref[z] for z in ref if z*1e-2 <= mc.L3D})
+        cells = []
+        for z in zs:
+            if z not in ref or z not in s:
+                cells.append("-")
+                continue
+            tf, Pf, _ = ref[z]
+            t, P, _ = s[z]
+            best = min((math.sqrt(np.mean((np.interp(tf, t + sh, P) - Pf)**2)), sh)
+                       for sh in np.arange(-5e-3, 5e-3, 2.5e-5))
+            cells.append(f"{P.max()/Pf.max():.3f}; {1e3*best[1]:+.2f}; "
+                         f"{best[0]/mc.PULSE:.1e}")
+        lines.append(f"| {T_ms:g} | {c3:.2f} | " + " | ".join(cells) + " |")
     text = "\n".join(lines) + "\n"
     (HERE/"pulse.md").write_text(text)
     print(text)
