@@ -1162,3 +1162,24 @@ against the exact transient (alpha 6, 50 x 100 graded): Euler 0.99-1.00
 to the finest step; backward 1.99 before the floor; BDF 3/4 at the floor
 from the coarsest step; the floor, 7.1e-6, is the spatial error of this
 mesh (7.8e-6 in the space study over the 1 s window).
+
+### R1 (continued). Locating the build difference
+
+The first automated bisect treated a crash as "old" behaviour and found
+`df5551e9f` ("Fix PETSc Jacobian preallocation", 1 August), which only
+fixes a segfault with the older PETSc of the Ubuntu packages (it does not
+change results with newer PETSc): every commit before it crashed on
+xenosim for that reason, not because it behaves like the February build.
+The difference between the installed February build and the checkout
+(2.0 % RMS of the 3dTube wall displacement) splits into:
+
+| range | part of the 2.0 % | commit | what it is |
+|---|---|---|---|
+| February - 1 August | 1.47 % | being bisected, with the PETSc fix patched into each commit (`scratchpad/bis/driveA.sh`; the February-era commits reproduce the installed build to 3.5e-4 once patched) | - |
+| 10 - 24 August | 0.62 % | `53b669539` "Synchronise cached interface geometry and build mappings from reference geometry (#375)", 19 August | a bug fix: the FSI interface applied the fluid pressure with the face normals of the initial configuration for the whole run |
+| October | 0.05 % | `28751407c` "FSI: fix two defects in the wall force and the interface point transfer" | a bug fix (tmp aliasing in the wall viscous force at gcc -O3; degenerate barycentric weights) |
+
+Both identified parts are fixes of defects in the February code, so for
+them the checkout build is the correct one. The paper's FSI numbers
+should come from the checkout build; the report's (installed-library)
+Formaggia numbers carry those defects.
