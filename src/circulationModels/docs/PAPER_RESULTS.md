@@ -545,9 +545,9 @@ consistently.
 | 5 (interface) | 1077 | 1104 | 1093 | 1098 | 4.4e-2 / 1.8e-2 / 2.2e-2 |
 | 6.25 | 1045 | 1096 | 1085 | 1089 | 6.9e-2 / 3.6e-2 / 4.6e-2 |
 
-The shell's static edge stiffness (1.04e7 Pa/m) is about a sixth of the
-ring's hoop stiffness E h/R^2, so the elastic support behaves nearly as
-the free end; the full tube lies between clamped and free/spring at every
+The shell's static edge stiffness (1.04e7 Pa/m, i.e. 2 D beta^3 = (E h/R^2)/(2 beta), the hoop stiffness of only 0.87 mm of tube; an earlier version of this
+sentence called it "a sixth of the hoop stiffness", which was wrong) is
+weak, so the elastic support behaves nearly as the free end; the full tube lies between clamped and free/spring at every
 section. The static stiffness of the continuing wall is not what holds
 the ring in the full tube (its inertia and the pressure on the
 continuation are); the condition to build next is the continuity of area
