@@ -15,7 +15,7 @@
 | 10.5 | hard (1D + lumped pipe) | 1.143 | 1.143 | 2.6e-04 / 1.1e-03 | 2.2e-03 / 7.6e-03 |
 | 10.5 | soft (1D + lumped pipe) | 1.010 | 1.010 | 5.1e-05 / 5.2e-04 | 4.0e-04 / 1.1e-03 |
 
-Hard coupling, sine, periodic state: |Gamma| = 1 at every c0; with the inlet's own reflection the interface flow is Qin/|cos(w td) + i (w L/Zc) sin(w td)| in amplitude: 1.042 at 3.5 m/s, 1.011 at 7.0 m/s, 1.005 at 10.5 m/s; the runs start from rest and the undamped resonance of the vessel (about c0/(4 L1D) Hz) persists on top of it.
+Hard coupling, sine, periodic state: |Gamma| = 1 at every c0; with the inlet's own reflection the interface flow is Qin/|cos(w td) - (w L/Zc) sin(w td)| in amplitude: 1.153 at 3.5 m/s, 1.035 at 7.0 m/s, 1.015 at 10.5 m/s; the runs start from rest and the undamped resonance of the vessel (about c0/(4 L1D) Hz) persists on top of it.
 
 ## step inflow
 
@@ -32,7 +32,7 @@ Hard coupling, sine, periodic state: |Gamma| = 1 at every c0; with the inlet's o
 | 10.5 | hard (1D + lumped pipe) | 2.317 | 2.326 | 1.8e-02 / 6.0e-02 | 3.2e-01 / 2.2e+00 |
 | 10.5 | soft (1D + lumped pipe) | 1.346 | 1.466 | 1.8e-02 / 1.8e-01 | 7.0e-02 / 3.2e-01 |
 
-Hard coupling, sine, periodic state: |Gamma| = 1 at every c0; with the inlet's own reflection the interface flow is Qin/|cos(w td) + i (w L/Zc) sin(w td)| in amplitude: 1.042 at 3.5 m/s, 1.011 at 7.0 m/s, 1.005 at 10.5 m/s; the runs start from rest and the undamped resonance of the vessel (about c0/(4 L1D) Hz) persists on top of it.
+Hard coupling, sine, periodic state: |Gamma| = 1 at every c0; with the inlet's own reflection the interface flow is Qin/|cos(w td) - (w L/Zc) sin(w td)| in amplitude: 1.153 at 3.5 m/s, 1.035 at 7.0 m/s, 1.015 at 10.5 m/s; the runs start from rest and the undamped resonance of the vessel (about c0/(4 L1D) Hz) persists on top of it.
 
 ## smooth inflow
 
@@ -49,4 +49,4 @@ Hard coupling, sine, periodic state: |Gamma| = 1 at every c0; with the inlet's o
 | 10.5 | hard (1D + lumped pipe) | 1.268 | 1.268 | 1.4e-05 / 3.7e-05 | 1.2e-05 / 3.3e-05 |
 | 10.5 | soft (1D + lumped pipe) | 1.086 | 1.086 | 1.3e-06 / 6.2e-06 | 1.6e-06 / 8.0e-06 |
 
-Hard coupling, sine, periodic state: |Gamma| = 1 at every c0; with the inlet's own reflection the interface flow is Qin/|cos(w td) + i (w L/Zc) sin(w td)| in amplitude: 1.042 at 3.5 m/s, 1.011 at 7.0 m/s, 1.005 at 10.5 m/s; the runs start from rest and the undamped resonance of the vessel (about c0/(4 L1D) Hz) persists on top of it.
+Hard coupling, sine, periodic state: |Gamma| = 1 at every c0; with the inlet's own reflection the interface flow is Qin/|cos(w td) - (w L/Zc) sin(w td)| in amplitude: 1.153 at 3.5 m/s, 1.035 at 7.0 m/s, 1.015 at 10.5 m/s; the runs start from rest and the undamped resonance of the vessel (about c0/(4 L1D) Hz) persists on top of it.

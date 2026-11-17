@@ -161,10 +161,14 @@ def main():
                               else "- | - | - |"))
             figs[(inflow, c0name)] = rows
         w = 2*np.pi/0.3
+        # The periodic (particular) solution of the delay equations: with
+        # F = (iwL + Zc) Qh/2, G = (iwL - Zc) Qh/2 in f = Zc Qin(t - td) +
+        # g(t - 2 td), Qh/Qin = 1/(cos(w td) - (w L/Zc) sin(w td)); the
+        # same from the line's transfer matrix with the load Z = iwL
         lines += ["", "Hard coupling, sine, periodic state: |Gamma| = 1 at "
                   "every c0; with the inlet's own reflection the interface "
-                  "flow is Qin/|cos(w td) + i (w L/Zc) sin(w td)| in amplitude: " +
-                  ", ".join(f"{1/abs(math.cos(w*L1D/c0) + 1j*(w*LIND/(RHO*c0/A))*math.sin(w*L1D/c0)):.3f} at {c0} m/s"
+                  "flow is Qin/|cos(w td) - (w L/Zc) sin(w td)| in amplitude: " +
+                  ", ".join(f"{1/abs(math.cos(w*L1D/c0) - (w*LIND/(RHO*c0/A))*math.sin(w*L1D/c0)):.3f} at {c0} m/s"
                             for c0 in C0S.values()) +
                   "; the runs start from rest and the undamped resonance of "
                   "the vessel (about c0/(4 L1D) Hz) persists on top of it.", ""]
