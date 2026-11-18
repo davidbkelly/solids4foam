@@ -92,6 +92,25 @@ rigid3D_total_flux against rigid3D: RMS dP / pulse 1.45e-03, RMS dQ / peak Q 2.3
 
 stubsInertance_total against stubsInertance: RMS dP / pulse 1.41e-03, RMS dQ / peak Q 2.36e-03, max dP / pulse 4.65e-03
 
+## Against the in vitro data in Boileau's measure
+
+Boileau et al. (2015) Eqs. 10-11 [%]: the pressure error relative to the measured pressure itself (not the pulse, as in the tables above), the flow error relative to the peak measured flow, with their time alignment of the in vitro record. The last row of each site is the range of the six schemes of their Table X.
+
+| site | run | E^RMS_P | E^MAX_P | E^RMS_Q | E^MAX_Q |
+|---|---|---|---|---|---|
+| AorticArchII | original | 1.85 | 3.66 | 12.22 | 29.41 |
+| AorticArchII | stubsInertance | 2.17 | 3.85 | 10.90 | 33.85 |
+| AorticArchII | rigid3D | 2.16 | 3.76 | 10.53 | 28.84 |
+| AorticArchII | six schemes (Boileau Table X) | 1.68-1.94 | 3.21-3.97 | 12.02-12.34 | 29.00-31.83 |
+| ThoracicAortaII | original | 2.41 | 5.53 | 25.50 | 66.27 |
+| ThoracicAortaII | stubsInertance | 3.11 | 6.94 | 24.48 | 61.57 |
+| ThoracicAortaII | rigid3D | 3.01 | 5.56 | 23.99 | 56.00 |
+| ThoracicAortaII | six schemes (Boileau Table X) | 2.17-2.53 | 5.03-5.70 | 25.26-25.62 | 64.93-70.75 |
+| RIliacFemoralII | original | 3.77 | 9.24 | 24.29 | 61.05 |
+| RIliacFemoralII | stubsInertance | 3.59 | 8.71 | 28.84 | 79.25 |
+| RIliacFemoralII | rigid3D | 3.51 | 7.83 | 28.17 | 72.69 |
+| RIliacFemoralII | six schemes (Boileau Table X) | 3.65-3.97 | 8.66-9.69 | 23.90-24.80 | 59.28-61.61 |
+
 ## Cost of the coupled run
 
 1654 steps, 5.1 outer iterations per step, 10.1 network re-integrations per step, 273 s wall time

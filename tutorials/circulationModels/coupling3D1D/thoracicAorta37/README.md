@@ -57,18 +57,18 @@ flow.
 
 See `results.md` and `plots/sites.png`.
 
-| site | run | peak P [kPa] | peak Q [ml/s] | RMS dP vs original / pulse | RMS dQ vs original / peak Q | vs in vitro: RMS dP / dQ |
+| site | run | peak P [kPa] | peak Q [ml/s] | RMS dP vs original / pulse | RMS dQ vs original / peak Q | vs in vitro: E^RMS_P / E^RMS_Q [%] |
 |---|---|---|---|---|---|---|
-| aortic arch II (upstream) | original 1D | 15.01 | 179 | - | - | 0.084 / 0.134 |
-| | stubs1D | 15.01 | 179 | 4e-7 | 2e-6 | 0.084 / 0.134 |
-| | inertance | 15.38 | 184 | 4.4e-2 | 5.0e-2 | 0.086 / 0.123 |
-| | rigid3D | 15.38 | 183 | 4.5e-2 | 5.1e-2 | 0.086 / 0.124 |
-| thoracic aorta II (3D mid-plane) | original 1D | 15.21 | 128 | - | - | 0.118 / 0.291 |
-| | inertance | 15.54 | 123 | 4.3e-2 | 3.9e-2 | 0.119 / 0.285 |
-| | rigid3D | 15.60 | 121 | 4.4e-2 | 4.2e-2 | 0.122 / 0.285 |
-| right iliac-femoral II (downstream) | original 1D | 16.29 | 12.4 | - | - | 0.299 / 0.378 |
-| | inertance | 16.80 | 13.4 | 4.5e-2 | 5.1e-2 | 0.309 / 0.412 |
-| | rigid3D | 16.79 | 13.1 | 4.5e-2 | 5.1e-2 | 0.311 / 0.412 |
+| aortic arch II (upstream) | original 1D | 15.01 | 179 | - | - | 1.85 / 12.2 |
+| | stubs1D | 15.01 | 179 | 4e-7 | 2e-6 | 1.85 / 12.2 |
+| | inertance | 15.38 | 184 | 4.4e-2 | 5.0e-2 | 2.17 / 10.9 |
+| | rigid3D | 15.38 | 183 | 4.5e-2 | 5.1e-2 | 2.16 / 10.5 |
+| thoracic aorta II (3D mid-plane) | original 1D | 15.21 | 128 | - | - | 2.41 / 25.5 |
+| | inertance | 15.54 | 123 | 4.3e-2 | 3.9e-2 | 3.11 / 24.5 |
+| | rigid3D | 15.60 | 121 | 4.4e-2 | 4.2e-2 | 3.01 / 24.0 |
+| right iliac-femoral II (downstream) | original 1D | 16.29 | 12.4 | - | - | 3.77 / 24.3 |
+| | inertance | 16.80 | 13.4 | 4.5e-2 | 5.1e-2 | 3.59 / 28.8 |
+| | rigid3D | 16.79 | 13.1 | 4.5e-2 | 5.1e-2 | 3.51 / 28.2 |
 
 rigid3D against the inertance limit (RMS, of the pulse and of the peak
 flow): 2.0e-3 / 3.7e-3 at the arch, 1.5e-2 / 6.5e-3 at the mid-plane,
@@ -88,9 +88,17 @@ flow): 2.0e-3 / 3.7e-3 at the arch, 1.5e-2 / 6.5e-3 at the mid-plane,
   viscous pressure loss and the taper of the cone (the inertance node uses
   the equivalent radius) act: the coupling adds nothing visible to the
   physics of the segment.
-- **Against the in vitro data** the rigid segment moves the Boileau errors
-  by less than 0.01, in either direction: the 1D model's own error (8-30 %
-  RMS at these sites in Boileau's Table X) dominates.
+- **Against the in vitro data**, in Boileau's measure (Eqs. 10-11: the RMS
+  pressure error relative to the measured pressure, the RMS flow error
+  relative to the peak measured flow, with their time alignment of the in
+  vitro record; `results.md`, last table), the original network is within
+  the range of the six schemes of Boileau's Table X at all three sites
+  (1.7-4.0 % in pressure, 12-26 % in flow), and the rigid segment moves the
+  errors by at most 0.7 points in pressure and 5 in flow, in either
+  direction: the 1D model's own error, common to all six schemes, dominates.
+  (Relative to the pulse instead of the pressure and without the alignment,
+  the same misfit reads 0.08-0.31 and 0.12-0.41: the RMS columns of
+  `results.md`'s per-site tables.)
 - **Cost**: 5.1 outer iterations per step (10 network re-integrations), 273 s
   for two cycles of 827 steps on one core.
 

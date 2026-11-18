@@ -15,6 +15,8 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from makeCases import SRC, T_CYCLE, T_STATE, N_CYCLES  # noqa: E402
+sys.path.insert(0, str(SRC.parents[1]/"common"))
+import boileauMetrics as bm  # noqa: E402
 
 RUNS = HERE/"runs"
 T0 = T_STATE + (N_CYCLES - 1)*T_CYCLE                  # the last cycle
@@ -92,26 +94,52 @@ def rms(x):
     return math.sqrt(np.mean(x**2))
 
 
+BOILEAU_KEYS = [("RMS", "P"), ("MAX", "P"), ("RMS", "Q"), ("MAX", "Q")]
+
+
+def boileau_errors(site, t, P, Q):
+    """Errors [%] against the in vitro data as Boileau et al. (2015) Eqs.
+    10-11 measure them: the pressure error relative to the measured pressure
+    itself (about 10-15 kPa, not the pulse), the flow error relative to the
+    peak measured flow, on the in vitro samples placed with their published
+    time shift of the record (as boileauMetrics.analyse_network does)"""
+    refdir = SRC/"referenceData"
+    exp = {q: bm.load_reference(refdir/f"Exp_{site}_{q}.txt") for q in "PQ"}
+    t0_pub = bm.time_shifts(refdir/"timeShifts.txt")[site] - 0.001
+    k = math.floor((t[-1] - exp["P"][-1, 0] - t0_pub)/T_CYCLE + 1e-9)
+    t0 = t0_pub + k*T_CYCLE
+    assert t0 >= t[0] - 1e-9, (site, t0, t[0])
+    m = {}
+    for q, y in (("P", P/1e3), ("Q", Q*1e6)):           # kPa, ml/s
+        m.update(bm.errors(np.interp(exp[q][:, 0] + t0, t, y), exp[q][:, 1], q))
+    return m
+
+
 def main():
     lines = ["# The thoracic aorta II (s17) of the 37-artery network as a 3D segment",
              "", f"Last cycle ({T0:.3f}-{T1:.3f} s), period {T_CYCLE} s.", ""]
     data = {}
+    boileau = {}
     for site in SITES:
         d = {}
-        d["original"] = cycle(*original(site))
+        raw = {"original": original(site)}
         for case in ("stubs1D", "stubsInertance", "stubsInertance_total"):
             name = site
             if site == "ThoracicAortaII" and case.startswith("stubsInertance"):
                 name = "portIn"
             r = probe(case, name)
             if r is not None:
-                d[case] = cycle(*r)
+                raw[case] = r
         for case in ("rigid3D", "rigid3D_total_mean", "rigid3D_total_area",
                      "rigid3D_total_flux"):
             r = zone(case, "mid") if site == "ThoracicAortaII" \
                 else coupled_probe(case, site)
             if r is not None:
-                d[case] = cycle(*r)
+                raw[case] = r
+        for case, r in raw.items():
+            d[case] = cycle(*r)
+        boileau[site] = {case: boileau_errors(site, *raw[case])
+                         for case in ("original", "stubsInertance", "rigid3D") if case in raw}
         tm, Pm, Qm = measured(site)
         d["measured"] = (tm, Pm, Qm)
         data[site] = d
@@ -147,6 +175,25 @@ def main():
                              f"{rms(Q - np.interp(t, tb, Qb))/Q_o.max():.2e}, "
                              f"max dP / pulse {np.abs(P - np.interp(t, tb, Pb)).max()/pulse:.2e}")
         lines.append("")
+    # The same runs in Boileau's measure, beside the range of his six schemes
+    lines += ["## Against the in vitro data in Boileau's measure", "",
+              "Boileau et al. (2015) Eqs. 10-11 [%]: the pressure error relative to the "
+              "measured pressure itself (not the pulse, as in the tables above), the flow "
+              "error relative to the peak measured flow, with their time alignment of the "
+              "in vitro record. The last row of each site is the range of the six schemes "
+              "of their Table X.", "",
+              "| site | run | " + " | ".join(f"E^{m}_{q}" for m, q in BOILEAU_KEYS) + " |",
+              "|---|---|" + "---|"*len(BOILEAU_KEYS)]
+    for site, runs in boileau.items():
+        for case, m in runs.items():
+            lines.append(f"| {site} | {case} | "
+                         + " | ".join(f"{m[k]:.2f}" for k in BOILEAU_KEYS) + " |")
+        cols = [bm.TABLE_X_ORDER.index(k) for k in BOILEAU_KEYS]
+        lines.append(f"| {site} | six schemes (Boileau Table X) | "
+                     + " | ".join(f"{min(bm.TABLE_X[site][s][c] for s in bm.SCHEMES):.2f}-"
+                                  f"{max(bm.TABLE_X[site][s][c] for s in bm.SCHEMES):.2f}"
+                                  for c in cols) + " |")
+    lines.append("")
     # cost
     log = RUNS/"rigid3D"/"log.pimpleFoam"
     if log.is_file():
