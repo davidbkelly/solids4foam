@@ -6,7 +6,7 @@ Besides the self-convergence, every run is compared with the exact solution of t
 
 | dt pair | to3D.Q | to3D.P |
 |---|---|---|
-| 0.002 / 0.001 / 0.0005 | 1.85 | 1.99 |
+| 0.002 / 0.001 / 0.0005 | 1.85 | 2.00 |
 | 0.001 / 0.0005 / 0.00025 | 0.81 | 0.81 |
 | 0.0005 / 0.00025 / 0.000125 | 0.95 | 0.93 |
 
@@ -15,18 +15,18 @@ Against the exact solution (Euler):
 | dt | to3D.Q | order | to3D.P | order |
 |---|---|---|---|---|
 | 0.002 | 1.36e-01 |  | 2.72e-01 |  |
-| 0.001 | 8.55e-02 | 0.67 | 1.58e-01 | 0.78 |
-| 0.0005 | 4.64e-02 | 0.88 | 8.67e-02 | 0.87 |
-| 0.00025 | 2.38e-02 | 0.96 | 4.49e-02 | 0.95 |
-| 0.000125 | 1.21e-02 | 0.98 | 2.29e-02 | 0.97 |
+| 0.001 | 8.58e-02 | 0.66 | 1.59e-01 | 0.78 |
+| 0.0005 | 4.67e-02 | 0.88 | 8.71e-02 | 0.87 |
+| 0.00025 | 2.40e-02 | 0.96 | 4.50e-02 | 0.95 |
+| 0.000125 | 1.22e-02 | 0.98 | 2.30e-02 | 0.97 |
 
-Finest run order_Euler_dt0.000125_linear: 2400 steps, 6.8 PIMPLE iterations per step, 143 s
+Finest run order_Euler_dt0.000125_linear: 2400 steps, 7.0 PIMPLE iterations per step, 210 s
 
 ## backward (q = 2)
 
 | dt pair | to3D.Q | to3D.P |
 |---|---|---|
-| 0.002 / 0.001 / 0.0005 | 2.20 | 1.84 |
+| 0.002 / 0.001 / 0.0005 | 2.19 | 1.84 |
 | 0.001 / 0.0005 / 0.00025 | 2.18 | 1.99 |
 | 0.0005 / 0.00025 / 0.000125 | 2.00 | 1.96 |
 
@@ -34,13 +34,13 @@ Against the exact solution (backward):
 
 | dt | to3D.Q | order | to3D.P | order |
 |---|---|---|---|---|
-| 0.002 | 1.06e-02 |  | 3.30e-02 |  |
-| 0.001 | 2.42e-03 | 2.13 | 9.17e-03 | 1.85 |
-| 0.0005 | 5.51e-04 | 2.14 | 2.36e-03 | 1.96 |
-| 0.00025 | 1.38e-04 | 2.00 | 7.79e-04 | 1.60 |
-| 0.000125 | 3.44e-05 | 2.00 | 5.37e-04 | 0.54 |
+| 0.002 | 1.06e-02 |  | 3.33e-02 |  |
+| 0.001 | 2.44e-03 | 2.12 | 9.28e-03 | 1.84 |
+| 0.0005 | 5.54e-04 | 2.14 | 2.39e-03 | 1.95 |
+| 0.00025 | 1.38e-04 | 2.00 | 7.87e-04 | 1.60 |
+| 0.000125 | 3.46e-05 | 2.00 | 5.41e-04 | 0.54 |
 
-Finest run order_backward_dt0.000125_linear: 2400 steps, 6.8 PIMPLE iterations per step, 142 s
+Finest run order_backward_dt0.000125_linear: 2400 steps, 6.9 PIMPLE iterations per step, 208 s
 
 ## BDF3 (q = 3)
 
@@ -54,13 +54,13 @@ Against the exact solution (BDF3):
 
 | dt | to3D.Q | order | to3D.P | order |
 |---|---|---|---|---|
-| 0.002 | 1.48e-03 |  | 1.37e-02 |  |
-| 0.001 | 2.19e-04 | 2.76 | 2.61e-03 | 2.39 |
-| 0.0005 | 2.91e-05 | 2.91 | 6.71e-04 | 1.96 |
-| 0.00025 | 4.48e-06 | 2.70 | 5.20e-04 | 0.37 |
-| 0.000125 | 2.21e-06 | 1.02 | 5.25e-04 | -0.01 |
+| 0.002 | 1.50e-03 |  | 1.39e-02 |  |
+| 0.001 | 2.21e-04 | 2.76 | 2.65e-03 | 2.39 |
+| 0.0005 | 2.94e-05 | 2.91 | 6.78e-04 | 1.96 |
+| 0.00025 | 4.53e-06 | 2.70 | 5.25e-04 | 0.37 |
+| 0.000125 | 2.23e-06 | 1.02 | 5.29e-04 | -0.01 |
 
-Finest run order_BDF3_dt0.000125_linear: 2400 steps, 6.8 PIMPLE iterations per step, 142 s
+Finest run order_BDF3_dt0.000125_linear: 2400 steps, 6.9 PIMPLE iterations per step, 207 s
 
 ## BDF4 (q = 4)
 
@@ -74,16 +74,16 @@ Against the exact solution (BDF4):
 
 | dt | to3D.Q | order | to3D.P | order |
 |---|---|---|---|---|
-| 0.002 | 1.28e-03 |  | 1.12e-02 |  |
-| 0.001 | 9.63e-05 | 3.74 | 1.89e-03 | 2.56 |
-| 0.0005 | 1.22e-05 | 2.98 | 5.90e-04 | 1.68 |
-| 0.00025 | 2.15e-06 | 2.50 | 5.30e-04 | 0.15 |
-| 0.000125 | 2.26e-06 | -0.07 | 5.29e-04 | 0.00 |
+| 0.002 | 1.30e-03 |  | 1.13e-02 |  |
+| 0.001 | 9.73e-05 | 3.74 | 1.92e-03 | 2.56 |
+| 0.0005 | 1.23e-05 | 2.99 | 5.96e-04 | 1.69 |
+| 0.00025 | 2.17e-06 | 2.50 | 5.35e-04 | 0.15 |
+| 0.000125 | 2.28e-06 | -0.07 | 5.34e-04 | 0.00 |
 
-Finest run order_BDF4_dt0.000125_linear: 2400 steps, 6.8 PIMPLE iterations per step, 141 s
+Finest run order_BDF4_dt0.000125_linear: 2400 steps, 6.9 PIMPLE iterations per step, 206 s
 
 ## Finest runs against the finest BDF4 run (RMS of the difference / RMS of the signal)
 
-- Euler: to3D.Q: 1.21e-02, to3D.P: 2.29e-02
-- backward: to3D.Q: 3.44e-05, to3D.P: 1.51e-04
-- BDF3: to3D.Q: 5.60e-07, to3D.P: 1.21e-05
+- Euler: to3D.Q: 1.22e-02, to3D.P: 2.30e-02
+- backward: to3D.Q: 3.45e-05, to3D.P: 1.53e-04
+- BDF3: to3D.Q: 5.65e-07, to3D.P: 1.23e-05

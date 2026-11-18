@@ -9,7 +9,7 @@ inertance L = rho l/A3D in series, so for an incident pulse
 Pinc(T) = P exp(-T^2/(2 sigma^2)) at the pipe the transmitted and reflected
 pulses are (src/circulationModels/docs/BENCHMARKS3D1D.md)
 
-    tau dPt/dT + Pt = Pinc,  Pr = Pinc - Pt,  tau = L/(2 Zc) = 6.52 ms.
+    tau dPt/dT + Pt = Pinc,  Pr = Pinc - Pt,  tau = L/(2 Zc) = 6.48 ms.
 
 From whatever has run in runs/:
 
@@ -137,7 +137,7 @@ def fmt(e):
 def main():
     lines = ["# Rigid segment, 3D-1D: pimpleFoam pipe coupled to 1D vessels", "",
              f"c0 = {C0:.4f} m/s, Zc = {Z0:.4e} Pa s/m3; pipe 8 cm, "
-             f"A3D = {A3D:.6e} m2 ({A3D/A0:.4f} pi R^2: the 32-sided patch), "
+             f"A3D = {A3D:.6e} m2 ({A3D/A0:.4f} pi R^2: the 32-sided patch, scaled to pi R^2), "
              f"tau = {TAU*1e3:.4f} ms; incident peak {P_INC*1e3:.4f} mPa "
              "(inflow x 1e-3); 1D dx = 1.25 mm, SSPRK3 (CFL 0.5 with "
              "backward, 0.1 with BDF 3 and BDF 4).", ""]

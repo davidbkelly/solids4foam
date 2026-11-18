@@ -86,10 +86,13 @@ def analyse():
         lines.append(f"- {k}: {e:.2e}")
     pr1, pr2 = ss.profiles(cases[1]), ss.profiles(cases[2])
     times = sorted(pr2)
+    # from the axis to the coarser run's wall cell (spaceStudy.wall_cell_r)
+    rin = pr2[times[0]][0] <= ss.wall_cell_r(1.0)
     umax = max(np.abs(pr2[tk][1]).max() for tk in times)
-    e = max(np.abs(np.interp(pr2[tk][0], pr1[tk][0], pr1[tk][1]) - pr2[tk][1]).max()
-            for tk in times)/umax
-    lines.append(f"- mid-length profile, max over {len(times)} instants: {e:.2e}")
+    e = max(np.abs(np.interp(pr2[tk][0][rin], pr1[tk][0], pr1[tk][1])
+                   - pr2[tk][1][rin]).max() for tk in times)/umax
+    lines.append(f"- mid-length profile, max over {len(times)} instants, from the axis "
+                 f"to the 50 x 100 mesh's wall cell: {e:.2e}")
     lines += ["", "Against the linear exact solution scaled to 5 kPa (what the "
               "linear model would give), RMS / RMS:", ""]
     import analyse as an
@@ -109,12 +112,16 @@ def analyse():
         f.write(hdr + "t [s],P_in [Pa],Q [m3/s],P_out [Pa]\n")
         for row in zip(t2, p2["to3D.P"], p2["to3D.Q"], p2["from3D.P"]):
             f.write(",".join(f"{v:.12g}" for v in row) + "\n")
-    r = pr2[times[0]][0]
+    # up to the 100 x 200 run's wall cell (inside it the sampled values
+    # converge at first order only)
+    keep = pr2[times[0]][0] <= ss.wall_cell_r(2.0)
+    r = pr2[times[0]][0][keep]
     with open(outdir/"alpha6_physiological_profiles.csv", "w") as f:
-        f.write(hdr + "# u(r, t) [m/s] at the mid-length; r [m] then t = "
+        f.write(hdr + "# u(r, t) [m/s] at the mid-length, from the axis to the wall "
+                "cell (u = 0 at r = 0.01 m); r [m] then t = "
                 + ", ".join(f"{tk:g}" for tk in times) + " s\n")
         for j in range(len(r)):
-            f.write(f"{r[j]:.12g}," + ",".join(f"{pr2[tk][1][j]:.12g}" for tk in times) + "\n")
+            f.write(f"{r[j]:.12g}," + ",".join(f"{pr2[tk][1][keep][j]:.12g}" for tk in times) + "\n")
 
 
 def main():

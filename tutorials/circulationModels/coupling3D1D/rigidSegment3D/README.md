@@ -28,15 +28,16 @@ With slip walls the exact 3D solution is plug flow, an inertance
 low-pass filter:
 
 ```text
-tau dPt/dt + Pt = Pinc,   Pr = Pinc - Pt,   tau = L/(2 Zc) = 6.52 ms
+tau dPt/dt + Pt = Pinc,   Pr = Pinc - Pt,   tau = L/(2 Zc) = 6.48 ms
 ```
 
 with a closed form for a Gaussian `Pinc` (see
 `src/circulationModels/docs/BENCHMARKS3D1D.md`). Finite volumes represent plug
 flow exactly, so what is left is the coupling's error and the 1D
 discretisation's. The inflow of Boileau Eq. 14 is scaled by 1e-3 so that the
-pulse is linear. The 3D patches are 32-sided polygons, 0.64% smaller than
-`pi R^2`; `A3D` is their area.
+pulse is linear. The 3D patches are 32-sided polygons whose vertex radius
+is scaled by `sqrt(pi/(16 sin(pi/16)))` = 1.003222 so that their area is
+exactly `pi R^2`, the vessels' area: the closed form uses `pi R^2` only.
 
 The coupling number is `dt/tau`: within one step each vessel end answers the
 3D flow as a resistor `Zc`. A model problem (the CFD's BDF formula for the
@@ -102,7 +103,7 @@ From `./Allrun-sweep` (`results.md`, `plots/rigidSegment3D.png`):
 - **Against the closed form.** The 3D flux and the pressures at both ends of
   the pipe agree with the closed form to the 1D discretisation error: 1.1e-3
   of the incident peak for the flux and outlet pressure, 3.5e-3 for the inlet
-  pressure (implicit order 2, dt = 0.5 ms), against 1.2e-3 and 4.1e-3 for the
+  pressure (implicit order 2, dt = 0.5 ms), against 1.2e-3 and 4.0e-3 for the
   1D-only run with the pipe as an inertance node. Mass through the pipe is
   conserved to 1e-12 of the peak.
 - **Consistency.** The finest coupled run (dt = 0.03125 ms) differs from the
@@ -112,8 +113,8 @@ From `./Allrun-sweep` (`results.md`, `plots/rigidSegment3D.png`):
   | CFD ddt | explicit 1 | explicit 2 | explicit 3 | explicit 4 | implicit |
   | --- | --- | --- | --- | --- | --- |
   | `backward` | 1.00 | 1.99 | 2.14 | 2.01 | 2.00 (order 2) |
-  | `BDF 3` | 1.02 | 1.97 | 2.99 | 3.17 | 2.98 (orders 1 and 3) |
-  | `BDF 4` | 1.02 | 2.00 | 2.97 | 3.89 | 3.78 (orders 1 and 4) |
+  | `BDF 3` | 1.02 | 1.97 | 2.99 | 3.16 | 2.98 (orders 1 and 3) |
+  | `BDF 4` | 1.02 | 2.00 | 2.97 | 3.86 | 3.70 (orders 1 and 4) |
 
   These orders are of the 3D flux. Explicit coupling of order `p` with a CFD
   scheme of order `q` converges at order `min(p, q)`; implicit coupling of
@@ -123,20 +124,20 @@ From `./Allrun-sweep` (`results.md`, `plots/rigidSegment3D.png`):
   step. The waves the ports send into the vessels do carry that shape, and
   there implicit order `p` gives `min(p, q)` (see the fourth-order study
   below). The BDF 4 orders fall a little short of
-  4 on the finest step, where the error (5e-7 of the peak) nears the vessels'
+  4 on the finest step, where the error (6e-7 of the peak) nears the vessels'
   time error. At dt = 0.25 ms the error is 2.2e-4 with backward, 8.8e-6 with
-  BDF 3, 5.5e-7 with BDF 4; with BDF 4 the coupled run is at the 1D
+  BDF 3, 5.8e-7 with BDF 4; with BDF 4 the coupled run is at the 1D
   discretisation error against the closed form from dt = 1 ms on, with
   backward only from 0.25 ms. The finest runs of BDF 3 and BDF 4 differ from
-  the 1D run with the inertance node by 1.6e-8 and 4.4e-9 of the peak.
+  the 1D run with the inertance node by 1.9e-8 and 5.3e-9 of the peak.
 - **Stability.** Every explicit run at 0.9 times its predicted limit decays and
   every one at 1.1 times it grows (16 runs: backward orders 2-4, BDF 3 orders
   3-4, BDF 4 orders 1, 3, 4). The amplification per step of the step-to-step
   oscillation after the pulse, fitted from the runs, matches the model's
   largest root: for example 1.1721 against 1.1721 (backward, order 2, 1.1x),
-  1.1508 against 1.1508 (BDF 3, order 3), 1.1373 against 1.1371 (BDF 4,
-  order 4); BDF 4's order 1, the complex pair, 1.035 against 1.025.
-- **Cost.** The implicit iteration takes 11 outer correctors per step on
+  1.1508 against 1.1508 (BDF 3, order 3), 1.1376 against 1.1371 (BDF 4,
+  order 4); BDF 4's order 1, the complex pair, 1.073 against 1.025.
+- **Cost.** The implicit iteration takes 10 outer correctors per step on
   average at dt = 0.5 ms (19 while the pulse passes); the case runs in about
   2 minutes in serial.
 
@@ -157,8 +158,8 @@ fourth-order error). The mesh and the 3D step are refined together, from
 
 | coupling | 3D flux | pipe-end pressures | waves in the vessels |
 | --- | --- | --- | --- |
-| implicit 4 | 3.90, 3.98, 4.08 | 3.89, 3.99, 4.09 | 3.95, 4.00, 4.09 |
-| explicit 4 | 3.90, 3.97, 3.99 | 3.90, 3.98, 3.97 | 3.96, 4.00, 3.98 |
+| implicit 4 | 3.90, 3.98, 4.08 | 3.89, 3.99, 4.09 | 3.96, 4.00, 4.09 |
+| explicit 4 | 3.90, 3.97, 3.99 | 3.90, 3.98, 3.98 | 3.96, 4.00, 3.98 |
 | implicit 2 | 3.90, 3.98, 4.08 | 3.89, 3.99, 4.08 | 1.60, 1.89, 1.97 |
 | implicit 1 | 3.89, 3.91, 2.43 | 3.79, 3.34, 1.87 | 0.98, 1.00, 1.00 |
 
@@ -177,7 +178,7 @@ closed form is the exact solution at full amplitude, so the same study is
 measured against it, one level further (0.15625 mm, 0.125 ms), the profiles
 against the closed form's cell averages (five-point Gauss quadrature; against
 point values the comparison itself is second order). The closed form takes
-`tau` with the 32-sided patch area and includes the reflected pulse's return
+`tau` with the patch area `pi R^2` and includes the reflected pulse's return
 to the flow inlet, where it reflects with +1 in pressure. Orders between
 successive levels:
 

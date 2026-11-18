@@ -23,7 +23,10 @@ Prepared by David Kelly
 The two 1 m vessels of the rigid-segment benchmark (R = 1 cm, c0 = 6.17 m/s,
 inviscid, 400 cells each) joined by a rigid no-slip pipe, R = 1 cm, length
 10 cm, an axisymmetric 5-degree wedge in pimpleFoam (50 radial cells graded
-10:1 towards the wall, 100 axial cells; `flowScale 72` on both ports),
+10:1 towards the wall, 100 axial cells; its flat outer face at the distance
+R from the axis and `flowScale` pi/tan(2.5 deg) = 71.954 on both ports, so
+that the coupled problem is exactly the circular pipe of radius R, see
+"The wedge's geometry" below),
 `backward` at dt = 1 ms, implicit coupling of order 2. The proximal inlet
 is a `waveInlet`: a non-reflecting end that sends in
 p(t) = 50 Pa sin(2 pi t), ramped over the first period (velocity 7.7 mm/s,
@@ -71,31 +74,38 @@ See `results.md`, `plots/ports.png` and `plots/profiles.png`.
 
 | alpha | Z [Pa s/m3] | \|Gamma\| (inviscid) | \|T\| (inviscid) | amplitude error, P_in / Q / P_out | phase error [deg] | profile error |
 |---|---|---|---|---|---|---|
-| 3 | 1.99e6 + 2.76e6 i | 0.0786 (0.0508) | 0.952 (0.999) | 1.3e-4 / 1.5e-4 / 1.5e-4 | 0.003 / -0.004 / -0.004 | 2.3e-3 |
-| 6 | 6.95e5 + 2.56e6 i | 0.0632 (0.0508) | 0.982 (0.999) | 8.5e-5 / 8.8e-5 / 8.9e-5 | 0.004 / -0.004 / -0.004 | 4.6e-3 |
-| 12 | 2.94e5 + 2.34e6 i | 0.0568 (0.0508) | 0.991 (0.999) | 7.1e-5 / 7.1e-5 / 7.2e-5 | 0.004 / -0.004 / -0.004 | 8.9e-3 |
+| 3 | 1.99e6 + 2.76e6 i | 0.0786 (0.0508) | 0.952 (0.999) | 1.1e-5 / 1.3e-5 / 1.2e-5 | < 0.0005 | 3.1e-3 |
+| 6 | 6.95e5 + 2.56e6 i | 0.0632 (0.0508) | 0.982 (0.999) | 6.9e-6 / 8.0e-6 / 7.1e-6 | < 0.0005 | 3.1e-3 |
+| 12 | 2.94e5 + 2.34e6 i | 0.0568 (0.0508) | 0.991 (0.999) | 6.7e-6 / 7.8e-6 / 7.1e-6 | < 0.0005 | 2.5e-3 |
 
-The coupled run reproduces the exact periodic state to 1e-4 in amplitude
-and 0.004 degrees in phase at every Womersley number, and the mid-length
-velocity profile matches Womersley's to 0.2-0.9 % of its peak (the Stokes
-layer at alpha = 12 is 1.2 mm thick on a wall cell of 0.05 mm). Viscosity
+The coupled run reproduces the exact periodic state to 1e-5 in amplitude
+and better than 0.0005 degrees in phase at every Womersley number, and the
+mid-length velocity profile matches Womersley's to 0.25-0.31 % of its peak
+(outside the wall cell: values sampled inside it converge at first order
+only, see "Order in space"; the Stokes layer at alpha = 12 is 1.2 mm
+thick on a wall cell of 0.05 mm). Viscosity
 is not a small effect here: at alpha = 3 the pipe's resistance is as large
 as its reactance, it reflects 7.9 % of the wave instead of 5.1 % and
 transmits 95 % instead of 99.9 %, and the runs follow the viscous values,
 not the inviscid ones. The entrance region at the inlet port leaves no
 measurable trace at this length (l/R = 10).
 
-**The wedge's cross-section.** Those 1e-4 are the mesh's geometry, not the
-coupling: the wedge has a flat wall between vertices at radius R, so its
-cross-section is `0.5 R^2 sin(theta)` per wedge of theta = 5 degrees,
-0.99873 of its share of `pi R^2`, and the 3D problem it poses is the
-circular pipe of that area, `R_eq = R sqrt(sin(theta)/theta)` = 9.99365 mm.
-Against that pipe's Womersley solution (`results.md`, second line of each
-case) the amplitude errors are 5 to 7e-6 at alpha = 6 and 12 and 1.4 to
-1.6e-5 at alpha = 3, the phases 0.0002 to 0.0004 degrees. The same holds
-for any wedge or polygonal mesh: the reference must take the mesh's own
-area (as the rigid-segment benchmark takes its 32-gon patch), or the
-comparison floors at the area deficit times |Gamma|.
+**The wedge's geometry.** A one-cell wedge of angle theta with its flat
+outer face at the distance R_c from the axis has, at every distance x,
+faces and volumes of width 2 x tan(theta/2) instead of the sector's
+x theta: a uniform factor k = 2 tan(theta/2)/theta = 1.000635, whatever
+the radial grading. The finite-volume problem is therefore the circular
+pipe of radius R_c with every flux times k. The usual wedge, with its edge
+vertices at R, is the pipe of radius R cos(theta/2) (and not the pipe of
+equal area, which has the same inertance but a viscous resistance k times
+smaller); measured against the pipe of radius R its ports floor at 0.7 to
+1.5e-4 on every mesh, the geometry and not the coupling. This wedge has
+its face at R_c = R (`base/system/blockMeshDict`) and `flowScale`
+2 pi/(k theta) = pi/tan(theta/2) on the ports (`makeCases.py`), so the
+coupled problem is exactly the pipe of radius R and `analyse.py` compares
+with Womersley's solution for R. The same holds for any wedge or polygonal
+mesh: the mesh must pose the problem whose exact solution is used (as the
+rigid-segment benchmark's 32-gon is scaled to the area pi R^2).
 
 What this adds to `rigidSegment3D`: the coupling is exact for a 3D side
 whose velocity profile is not uniform, i.e. the exchange of mean pressure
@@ -125,8 +135,10 @@ coupling order 4 at dt = 0.25 ms, on the 50 x 100 and 100 x 200 wedges.
 The finer run is the reference, written to
 `reference/alpha6_physiological_ports.csv` (every 0.25 ms) and
 `_profiles.csv` (u(r, t) at nine instants), labelled numerical; the
-coarser run differs from it by 5.1e-6, 5.7e-6 and 5.8e-6 (RMS / RMS of
-P_in, Q, P_out) and 7.6e-4 on the mid-length profile (`physiological.md`),
+coarser run differs from it by 5.1e-6, 5.7e-6 and 5.7e-6 (RMS / RMS of
+P_in, Q, P_out) and 6.1e-4 on the mid-length profile (`physiological.md`;
+outside the coarser run's wall cell, and the profile file stops at the
+finer run's wall cell),
 the same spacing as the linearised study above, so the reference is
 converged to that. The two runs take an hour on two cores.
 
@@ -137,22 +149,36 @@ also alpha 3 and 12 on the two cheaper levels): the wedge at 25 x 50,
 50 x 100 and 100 x 200 over the first second from rest, BDF 4 and coupling
 order 4 at dt = 0.5 ms (the time error is negligible: dt = 0.25 and
 0.125 ms give the same errors to three digits), linearised vessels at
-fourth order, against the exact transient of the equal-area pipe; ports
+fourth order, against the exact transient of the pipe of radius R; ports
 (RMS / RMS of the exact) and the mid-length profile (max over eight
 instants):
 
-| alpha | mesh | ports | order | profile | order | PIMPLE it./step (steps at the cap) |
+| family, nr x nz | ports (P, Q) | order | profile | order | PIMPLE it./step | time [s] |
 |---|---|---|---|---|---|---|
-| 3 | 25 x 50 / 50 x 100 | 3.43e-5 / 1.35e-5 | 1.35 | 7.68e-3 / 2.18e-3 | 1.82 | 15.6 / 42.1 (240) |
-| 6 | 25 x 50 / 50 x 100 / 100 x 200 | 2.47e-5 / 4.61e-6 / 6.49e-6 | 2.42, -0.49 | 5.32e-3 / 1.17e-3 / 1.36e-3 | 2.19, -0.23 | 8.9 / 18.6 / 45.4 (1558) |
-| 12 | 25 x 50 / 50 x 100 | 2.48e-5 / 5.51e-6 | 2.17 | 1.10e-2 / 2.50e-3 | 2.14 | 6.2 / 10.2 |
+| graded, alpha 6, 25 x 50 | 3.10e-5 | | 3.05e-3 | | 9.2 | 137 |
+| 50 x 100 | 7.78e-6 | 1.99 | 7.54e-4 | 2.02 | 19.1 | 959 |
+| 100 x 200 | 1.95e-6 | 2.00 | 1.87e-4 | 2.01 | 46.4 | 13342 |
+| uniform, alpha 6, 25 x 50 | 1.37e-4 | | 4.84e-3 | | 5.8 | 84 |
+| 50 x 100 | 3.43e-5 | 2.00 | 1.21e-3 | 2.00 | 8.3 | 394 |
+| 100 x 200 | 8.58e-6 | 2.00 | 2.99e-4 | 2.01 | 14.8 | 4398 |
+| graded, alpha 3, 25 x 50 | 5.80e-5 | | 7.69e-3 | | 16.1 | 237 |
+| 50 x 100 | 1.43e-5 | 2.02 | 2.19e-3 | 1.81 | 43.0 | 2145 |
+| graded, alpha 12, 25 x 50 | 2.66e-5 | | 3.84e-3 | | 6.5 | 93 |
+| 50 x 100 | 6.87e-6 | 1.96 | 9.66e-4 | 1.99 | 10.5 | 507 |
 
-Second order between the two coarser meshes at alpha = 6 and 12; the
-100 x 200 mesh and the 50 x 100 mesh at alpha = 3 are limited by the
-outer loop, which runs to its 50-iteration cap on most steps (the
-pressure residual stalls near 1e-7): the achievable error of the
-segregated algorithm without momentum predictor on this wall-graded mesh,
-about 5e-6 of the signal, not the mesh's.
+The uniform family is `--family uniform` (`space_alpha6_u.md`), no wall
+grading, the face at R and the same `flowScale`. The ports (P and Q agree
+to the digits shown) converge at second order on both families and at
+every Womersley number, and so does the profile from the axis to the wall
+cell. Inside the wall cell the sampled values (`sets`, cellPoint: linear
+between the cell centre and the wall's point values) converge at first
+order only: on the uniform family, whose wall cell is R/nr, the profile up
+to the wall cell's centre gives 1.90e-2, 1.12e-2 and 6.53e-3 (orders 0.76,
+0.78), with the maximum in the wall cell; the graded family's wall cell is
+ten times thinner and hides it. That is the sampling, not the solution,
+and the profile errors stop at the wall cell. The time column is the
+serial wall time on xenosim; the PIMPLE outer loop needs more iterations
+on the finer wall-resolved meshes, a cost and not an accuracy limit.
 
 ## Order in time
 
@@ -178,22 +204,21 @@ where the converged runs agree.
 **Against the exact solution** (`../orderStudy.py --case womersleySegment
 --exact`; `orders_linear.md`, `plots/orders_linear.png`): the same runs
 with the vessels linearised at fourth order (kExact 3, RK4, 800 cells),
-each compared with the exact transient of the pipe of the wedge's
-cross-section (RMS error / RMS of the signal, port flow; the four port
-signals agree to the digits shown):
+each compared with the exact transient of the pipe of radius R (RMS
+error / RMS of the signal, port flow; the four port signals agree to the
+digits shown):
 
 | dt [ms] | Euler | backward | BDF 3 | BDF 4 |
 |---|---|---|---|---|
-| 4 | 1.08e-3 | 3.09e-5 | 7.34e-6 | 6.55e-6 |
-| 2 | 5.48e-4 | 9.86e-6 | 5.57e-6 | 5.61e-6 |
-| 1 | 2.77e-4 | 6.06e-6 | 5.57e-6 | 5.58e-6 |
-| 0.5 | 1.41e-4 | 5.63e-6 | 5.57e-6 | 5.57e-6 |
-| orders | 0.99, 0.99, 0.97 | 1.65, 0.70, 0.10 | 0.40, 0, 0 | 0.22, 0.01, 0 |
+| 4 | 1.08e-3 | 2.62e-5 | 8.78e-6 | 7.95e-6 |
+| 2 | 5.42e-4 | 6.60e-6 | 7.11e-6 | 7.12e-6 |
+| 1 | 2.72e-4 | 6.15e-6 | 7.10e-6 | 7.10e-6 |
+| 0.5 | 1.36e-4 | 6.83e-6 | 7.10e-6 | 7.10e-6 |
+| orders | 0.99, 1.00, 1.00 | 1.99, 0.10, -0.15 | 0.30, 0, 0 | 0.16, 0, 0 |
 
-Euler converges at its order to the finest step and backward at 1.65
+Euler converges at its order to the finest step and backward at 1.99
 before the floor; BDF 3 and BDF 4 are at the floor from the coarsest step.
-The floor, 5.6e-6, is the same for every family and is the 50 x 100
-wedge's spatial error (`spaceStudy.py`: 4.3e-6 for this mesh over 1 s,
-2.3e-5 on 25 x 50), so the time orders are those of the self-convergence
-above, down to the mesh's own error. Against the pipe of radius R instead
-of the equal-area one the floor is 6e-5 at every mesh and time step.
+The floor, 7.1e-6, is the same for every family and is the 50 x 100
+wedge's spatial error (`spaceStudy.py`: 7.8e-6 for this mesh over 1 s), so
+the time orders are those of the self-convergence above, down to the
+mesh's own error.

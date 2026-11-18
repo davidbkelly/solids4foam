@@ -22,7 +22,7 @@ FoamFile
 // pulse (Boileau et al. 2015, Table II; c0 = 6.17 m/s), 1 m each, joined
 // through the 3D pipe by two coupledFlow ports. The 3D pipe is rigid with slip
 // walls, so its exact solution is plug flow: an inertance L = rho l/A3D, and in
-// the linear limit tau dPt/dt + Pt = Pinc, tau = L/(2 Zc) = 6.52 ms. The inflow
+// the linear limit tau dPt/dt + Pt = Pinc, tau = L/(2 Zc) = 6.48 ms. The inflow
 // of Boileau Eq. 14 is scaled by 1e-3 so that the pulse is linear.
 
 fluid

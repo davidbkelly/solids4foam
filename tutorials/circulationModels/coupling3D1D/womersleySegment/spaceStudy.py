@@ -145,6 +145,26 @@ def profiles(case):
     return out
 
 
+def wall_cell(level):
+    """radial width of the wall cell of a level: nr cells over R, uniform or
+    graded 10:1 towards the wall (simpleGrading 0.1)"""
+    nr = int(round(50*level))
+    if FAMILY == "uniform":
+        return an.R/nr
+    q = 0.1**(1.0/(nr - 1))
+    return an.R*(1 - q)/(1 - q**nr)*q**(nr - 1)
+
+
+def wall_cell_r(level):
+    """the radius of the inner face of the wall cell of a level: the
+    profile is compared up to it. Inside the wall cell the sampled values
+    converge at first order only (0.8 on the uniform family, where the wall
+    cell is ten times wider than the graded family's; beyond the cell's
+    centre the set's cellPoint interpolation runs to the wall's point
+    values), while everywhere else the profile converges at second order"""
+    return an.R - wall_cell(level)
+
+
 def analyse(alpha, levels):
     rows = []
     for level in levels:
@@ -153,8 +173,7 @@ def analyse(alpha, levels):
             continue
         t, p = ports(case)
         # the problem the wedge discretises (see analyse.py): the pipe of
-        # the face distance R_c, flux times k; the uniform family is scaled
-        # so that k pi R_c^2 = pi R^2
+        # radius R, for both families
         geo = dict(A=an.A, R=an.R)        # the wedge with flowScale pi/tan(theta/2) is the pipe of radius R
         ex = an.exact_transient(alpha, t, **geo)
         eP = max(math.sqrt(np.mean((p[k] - ex[k])**2))
@@ -164,7 +183,8 @@ def analyse(alpha, levels):
         prof = profiles(case)
         times = sorted(prof)
         r = prof[times[0]][0]
-        inside = r <= geo["R"]           # the set ends 5 um inside the face
+        # up to the wall cell (see wall_cell_r)
+        inside = r <= wall_cell_r(level)
         r = r[inside]
         uex = an.exact_transient_profile(alpha, r, times, **geo)
         umax = np.abs(uex).max()
@@ -192,7 +212,9 @@ def analyse(alpha, levels):
              "pressures (max of the two) and flow, RMS over the window "
              "relative to the RMS of the exact signal; mid-length velocity "
              "profile, max over eight instants of max |u - u_exact| / max "
-             "|u_exact|. " + geometry, "",
+             "|u_exact|, from the axis to the wall cell (inside the wall cell "
+             "the sampled values converge at first order only). "
+             + geometry, "",
              "| nr x nz | P ports | order | Q | order | profile | order | "
              "PIMPLE it./step | time [s] |",
              "|---|---|---|---|---|---|---|---|---|"]

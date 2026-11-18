@@ -6,9 +6,9 @@
 |---|---|---|
 | 0.002 / 0.001 / 0.0005 | 0.41 | 0.41 |
 | 0.001 / 0.0005 / 0.00025 | 0.87 | 0.85 |
-| 0.0005 / 0.00025 / 0.000125 | 0.94 | 0.92 |
+| 0.0005 / 0.00025 / 0.000125 | 0.93 | 0.92 |
 
-Finest run order_Euler_dt0.000125: 2400 steps, 7.1 PIMPLE iterations per step, 172 s
+Finest run order_Euler_dt0.000125: 2400 steps, 7.0 PIMPLE iterations per step, 191 s
 
 ## backward (q = 2)
 
@@ -18,7 +18,7 @@ Finest run order_Euler_dt0.000125: 2400 steps, 7.1 PIMPLE iterations per step, 1
 | 0.001 / 0.0005 / 0.00025 | 1.99 | 1.92 |
 | 0.0005 / 0.00025 / 0.000125 | 2.00 | 1.97 |
 
-Finest run order_backward_dt0.000125: 2400 steps, 7.0 PIMPLE iterations per step, 168 s
+Finest run order_backward_dt0.000125: 2400 steps, 6.9 PIMPLE iterations per step, 189 s
 
 ## BDF3 (q = 3)
 
@@ -28,20 +28,20 @@ Finest run order_backward_dt0.000125: 2400 steps, 7.0 PIMPLE iterations per step
 | 0.001 / 0.0005 / 0.00025 | 2.91 | 2.73 |
 | 0.0005 / 0.00025 / 0.000125 | 2.97 | 2.94 |
 
-Finest run order_BDF3_dt0.000125: 2400 steps, 6.9 PIMPLE iterations per step, 166 s
+Finest run order_BDF3_dt0.000125: 2400 steps, 6.9 PIMPLE iterations per step, 183 s
 
 ## BDF4 (q = 4)
 
 | dt pair | to3D.Q | to3D.P |
 |---|---|---|
 | 0.002 / 0.001 / 0.0005 | 3.33 | 2.82 |
-| 0.001 / 0.0005 / 0.00025 | 3.47 | 3.43 |
+| 0.001 / 0.0005 / 0.00025 | 3.48 | 3.43 |
 | 0.0005 / 0.00025 / 0.000125 | 3.82 | 3.92 |
 
-Finest run order_BDF4_dt0.000125: 2400 steps, 7.0 PIMPLE iterations per step, 168 s
+Finest run order_BDF4_dt0.000125: 2400 steps, 6.9 PIMPLE iterations per step, 185 s
 
 ## Finest runs against the finest BDF4 run (RMS of the difference / RMS of the signal)
 
-- Euler: to3D.Q: 1.21e-02, to3D.P: 2.28e-02
-- backward: to3D.Q: 3.44e-05, to3D.P: 1.44e-04
-- BDF3: to3D.Q: 4.35e-07, to3D.P: 5.98e-06
+- Euler: to3D.Q: 1.22e-02, to3D.P: 2.29e-02
+- backward: to3D.Q: 3.45e-05, to3D.P: 1.46e-04
+- BDF3: to3D.Q: 4.40e-07, to3D.P: 6.07e-06

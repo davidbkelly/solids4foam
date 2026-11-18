@@ -1194,7 +1194,7 @@ checkout build is the correct one. The paper's FSI numbers
 should come from the checkout build; the report's (installed-library)
 Formaggia numbers carry those defects.
 
-### R4 (go-ahead given 17 November). Meshes whose exact solutions are the plain pipe: running
+### R4 (go-ahead given 17 November). Meshes whose exact solutions are the plain pipe: done
 
 Set-up committed in `bebb98128`: the rigid pipe's O-grid scaled radially
 by 1.003222 (32-gon patch of area pi R^2; A3D = pi R^2 everywhere), the
@@ -1222,3 +1222,86 @@ Expected wall time 7-8 h, set by the 100 x 200 graded Womersley run and
 the 100 x 200 physiological reference (about 7 h each on xenosim). The
 results will replace the tables of items 1, 2, 3, 7, R2, R3 and the
 benchmark specifications 1, 1b, 1c.
+
+**Result (18 November; all seven jobs ended cleanly, tables fetched into
+the tutorials).** With the meshes posing the plain pipe, every result of
+the first round stands: the orders are unchanged and the numbers move in
+their third digit at most, which confirms the earlier per-mesh references
+(32-gon area; wedge = pipe of R_c with fluxes times k) were right. What
+changes is that no reference needs a mesh correction any more.
+
+| table | before (mesh-corrected reference) | now (pi R^2 / radius R) |
+|---|---|---|
+| B1 tau | 6.5226 ms (32-gon) | 6.4807 ms (= 1D inertance's) |
+| B1 closed form, implicit 4, five levels (3D flux) | 1.43e-3 ... 2.36e-8, orders 3.93-4.00 | 1.44e-3 ... 2.36e-8, orders 3.93-4.00 |
+| B1 explicit 4, finest | 7.05e-8 | 7.11e-8 |
+| B1 time orders (finest pair) BDF3 expl. 4 / BDF4 expl. 4 / BDF4 impl. 4 | 3.17 / 3.89 / 3.78 | 3.16 / 3.86 / 3.70 |
+| B1 stability, BDF4 p = 4 (measured vs model 1.1371) | 1.1373 | 1.1376 |
+| B3 3D pipe peaks: sine / step / smooth | 1.596 (1.596) / 2.263 (2.265) / 1.698 (1.698) | 1.594 (1.594) / 2.265 (2.267) / 1.700 (1.700): now equal to the lumped pipe's |
+| B3 smooth, BDF4 finest | 2.53e-9 | 2.53e-9 |
+| B2 periodic ports, alpha 3 / 6 / 12 (amplitude) | 1.1-1.3e-5 / 6.9-8.0e-6 / 6.7-7.8e-6 (vs the wedge's pipe) | the same (vs the pipe of R); phase < 0.0005 deg |
+| B2 time floor (50 x 100) | 7.1e-6 | 7.1e-6 |
+| B2 physiological, 50 x 100 vs 100 x 200 ports | 5.1-5.8e-6 | 5.1-5.7e-6 |
+
+**A sampling artefact found on the way.** With the wedge's face now at R,
+the profile set's last point (r = 0.9995 R) lies inside the wall cell
+(before, it was outside the mesh, beyond R cos(theta/2), and was dropped),
+so the max-norm profile errors jumped (graded alpha 6 space study 5.9e-3 /
+3.1e-3 at order 0.93; tutorial up to 1.4e-2; physiological 2.7e-3). Inside
+the wall cell `sets` with cellPoint interpolates between the cell value and
+the wall's point values, and the sampled values converge at first order
+only: a property of the sampling, not of the solution (the same artefact
+as the uniform family's 0.8 order in R2). A first fix, comparing up to the
+wall cell's centre, cured the graded family but left the uniform one at
+1.90e-2 / 1.12e-2 / 6.53e-3 (orders 0.76, 0.78), the maximum in the wall
+cell itself; outside the wall cell the uniform family is at order 2.00
+(the graded family's wall cell is ten times thinner and hides it).
+`spaceStudy.py`, `analyse.py` and `physiological.py` therefore compare
+from the axis to the inner face of the wall cell (r <= R - wall_cell(level),
+from the mesh's grading), and the physiological profile reference stops at
+the finer run's wall cell. Re-analysed on xenosim, no reruns:
+
+| profile error | all samples | excluding the wall cell |
+|---|---|---|
+| space study, graded alpha 6, 25 x 50 / 50 x 100 / 100 x 200 | 1.13e-2 / 5.93e-3 / 3.12e-3 (0.93, 0.93) | 3.05e-3 / 7.54e-4 / 1.87e-4 (2.02, 2.01) |
+| space study, uniform alpha 6 (first column: to the wall cell's centre) | 1.90e-2 / 1.12e-2 / 6.53e-3 (0.76, 0.78) | 4.84e-3 / 1.21e-3 / 2.99e-4 (2.00, 2.01) |
+| tutorial periodic, alpha 3 / 6 / 12 | 3.3e-3 / 6.6e-3 / 1.4e-2 | 3.1e-3 / 3.1e-3 / 2.5e-3 |
+| physiological, 50 x 100 vs 100 x 200 | 2.68e-3 | 6.1e-4 |
+
+The space study in full (`womersleySegment/space_alpha*.md`; the ports are
+unchanged by the profile norm, P and Q agree to the digits shown):
+
+| family | nr x nz | ports | order | profile | order |
+|---|---|---|---|---|---|
+| graded, alpha 6 | 25 x 50 / 50 x 100 / 100 x 200 | 3.10e-5 / 7.78e-6 / 1.95e-6 | 1.99, 2.00 | 3.05e-3 / 7.54e-4 / 1.87e-4 | 2.02, 2.01 |
+| uniform, alpha 6 | 25 x 50 / 50 x 100 / 100 x 200 | 1.37e-4 / 3.43e-5 / 8.58e-6 | 2.00, 2.00 | 4.84e-3 / 1.21e-3 / 2.99e-4 | 2.00, 2.01 |
+| graded, alpha 3 | 25 x 50 / 50 x 100 | 5.80e-5 / 1.43e-5 | 2.02 | 7.69e-3 / 2.19e-3 | 1.81 |
+| graded, alpha 12 | 25 x 50 / 50 x 100 | 2.66e-5 / 6.87e-6 | 1.96 | 3.84e-3 / 9.66e-4 | 1.99 |
+
+The uniform 200 x 400 run of R2 (old geometry) was not repeated: the three
+levels give order 2.00 already. The physiological reference is unchanged
+(5.10e-6 / 5.67e-6 / 5.74e-6 and 6.10e-4).
+
+**FSI wall match in plane stress (r4_B4ps, `formaggia2007/pulse_planeStress.md`).**
+The long-pulse coupled runs with the 1D wall at c0 = 5.07 m/s (plane
+stress) instead of 5.25 (plane strain), against the same full tubes. In the
+1D part (z = 6.25-12.5 cm) at T = 24 ms the time shift that best aligns
+coupled and full grows by 0.32 ms (0.35 to 0.67) instead of 0.72 ms (0.45
+to 1.17), the peak ratios are 0.99-1.00 instead of 1.01-1.02, and the raw
+RMS difference at z = 12.5 cm falls from 6.9e-2 to 4.2e-2 of the pulse; in
+the 3D part nothing changes (as it must), and the 0.35 ms shift at the port
+(z = 5 cm) is the same in both, so it comes from the 3D part's cut end. The
+full tube's speed measured over z = 1.25-5 cm is 5.17 m/s, between the two
+models: the thick tube with clamped ends is neither in plane strain nor in
+plane stress. Plane stress halves the lag that builds up along the 1D part
+but does not remove it; the remaining split is unchanged (dispersion falls
+with pulse length, a 0.35 ms port shift from the cut end, a 2-4 % residual
+after alignment).
+
+Updated with these numbers: `rigidSegment3D` (README, results, highOrder
+tables, references), `dobroserdova2016` (README, results, orders, CSVs),
+`womersleySegment` (README, results, space and order tables, physiological
+reference), `BENCHMARKS3D1D.md` specifications 1, 1b (wedge geometry and the
+profile norm) and 1c, the paper (`sections/exact.tex`, `analysis.tex`) and
+the thesis (chapters 7-10, 13).
+

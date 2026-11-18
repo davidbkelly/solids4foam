@@ -82,12 +82,13 @@ See `results.md` and `plots/dobroserdova_sine.png`, `plots/dobroserdova_step.png
   jump the soft coupling passes instantly through R1). The RMS errors are
   listed in `results.md`; the max norms are set by the smeared jump.
 - **3D runs.** The pimpleFoam pipe with the hard coupling reproduces the
-  exact solution: peak flow 1.596 against 1.596 (sine) and 2.263 against
-  2.265 (step). The exact solution of the 3D run takes the pipe's inductance
-  with the area of its 32-sided inlet patch (`A3D` = 0.9936 pi R^2, as the
-  rigid-segment benchmark does), which the 3D solution has exactly; with
-  pi R^2 instead, the 0.64 % error in L shifts the resonance and the RMS
-  flow error over 21 of its periods reads 3.8e-2 instead of 7.7e-3. That
+  exact solution: peak flow 1.594 against 1.594 (sine) and 2.265 against
+  2.267 (step). The 3D pipe's 32-sided patches are scaled to the area
+  pi R^2 (as in the rigid-segment benchmark), so the exact solution's
+  inductance is rho l/(pi R^2), the same as the 1D `inertance` node's; an
+  error of 0.64 % in L (the unscaled polygon's area) would shift the
+  resonance and make the RMS flow error over 21 of its periods read 3.8e-2
+  instead of 7.7e-3. That
   7.7e-3 of the inflow (sine, dt = 1 ms) is the phase error of the BDF2 time
   scheme on the undamped 17.5 Hz resonance (57 steps per period), not a
   coupling error: the 1D run with the lumped pipe, whose CFL step is 50 times
@@ -162,8 +163,8 @@ residual of 1e-10. Observed orders by self-convergence (`orders.md`,
 | dt triple [ms] | Euler | backward | BDF 3 | BDF 4 |
 |---|---|---|---|---|
 | 2 / 1 / 0.5 | 0.41 / 0.41 | 1.78 / 1.71 | 2.87 / 2.45 | 3.33 / 2.82 |
-| 1 / 0.5 / 0.25 | 0.87 / 0.85 | 1.99 / 1.92 | 2.91 / 2.73 | 3.47 / 3.43 |
-| 0.5 / 0.25 / 0.125 | 0.94 / 0.92 | 2.00 / 1.97 | 2.97 / 2.94 | 3.82 / 3.92 |
+| 1 / 0.5 / 0.25 | 0.87 / 0.85 | 1.99 / 1.92 | 2.91 / 2.73 | 3.48 / 3.43 |
+| 0.5 / 0.25 / 0.125 | 0.93 / 0.92 | 2.00 / 1.97 | 2.97 / 2.94 | 3.82 / 3.92 |
 
 (Q / P.) Every family reaches its nominal order; the coarse triples are
 pre-asymptotic because the first period from rest is the vessel's resonant
@@ -182,12 +183,12 @@ trip, accurate to 1e-8):
 
 | dt [ms] | Euler Q / P | backward Q / P | BDF 3 Q / P | BDF 4 Q / P |
 |---|---|---|---|---|
-| 2 | 1.36e-1 / 2.72e-1 | 1.06e-2 / 3.30e-2 | 1.48e-3 / 1.37e-2 | 1.28e-3 / 1.12e-2 |
-| 1 | 8.55e-2 / 1.58e-1 | 2.42e-3 / 9.17e-3 | 2.19e-4 / 2.61e-3 | 9.63e-5 / 1.89e-3 |
-| 0.5 | 4.64e-2 / 8.67e-2 | 5.51e-4 / 2.36e-3 | 2.91e-5 / 6.71e-4 | 1.22e-5 / 5.90e-4 |
-| 0.25 | 2.38e-2 / 4.49e-2 | 1.38e-4 / 7.79e-4 | 4.48e-6 / 5.20e-4 | 2.15e-6 / 5.30e-4 |
-| 0.125 | 1.21e-2 / 2.29e-2 | 3.44e-5 / 5.37e-4 | 2.21e-6 / 5.25e-4 | 2.26e-6 / 5.29e-4 |
-| orders | 0.67, 0.88, 0.96, 0.98 | 2.13, 2.14, 2.00, 2.00 | 2.76, 2.91, 2.70, 1.02 | 3.74, 2.98, 2.50, -0.07 |
+| 2 | 1.36e-1 / 2.72e-1 | 1.06e-2 / 3.33e-2 | 1.50e-3 / 1.39e-2 | 1.30e-3 / 1.13e-2 |
+| 1 | 8.58e-2 / 1.59e-1 | 2.44e-3 / 9.28e-3 | 2.21e-4 / 2.65e-3 | 9.73e-5 / 1.92e-3 |
+| 0.5 | 4.67e-2 / 8.71e-2 | 5.54e-4 / 2.39e-3 | 2.94e-5 / 6.78e-4 | 1.23e-5 / 5.96e-4 |
+| 0.25 | 2.40e-2 / 4.50e-2 | 1.38e-4 / 7.87e-4 | 4.53e-6 / 5.25e-4 | 2.17e-6 / 5.35e-4 |
+| 0.125 | 1.22e-2 / 2.30e-2 | 3.46e-5 / 5.41e-4 | 2.23e-6 / 5.29e-4 | 2.28e-6 / 5.34e-4 |
+| orders | 0.66, 0.88, 0.96, 0.98 | 2.12, 2.14, 2.00, 2.00 | 2.76, 2.91, 2.70, 1.02 | 3.74, 2.99, 2.50, -0.07 |
 
 (orders of Q.) Euler and backward converge at their orders to the finest
 step; BDF 3 and BDF 4 at 2.9 and 3.7 until a floor of 2.2e-6 in Q, and
@@ -213,12 +214,12 @@ to the last step (RMS error / RMS of the signal, Q, dt = 2 to 0.125 ms):
 
 | dt [ms] | Euler | backward | BDF 3 | BDF 4 |
 |---|---|---|---|---|
-| 2 | 1.59e-1 | 1.73e-2 | 1.59e-3 | 1.55e-4 |
-| 1 | 1.55e-1 | 4.16e-3 | 1.94e-4 | 9.02e-6 |
-| 0.5 | 8.14e-2 | 9.26e-4 | 2.20e-5 | 5.25e-7 |
-| 0.25 | 4.12e-2 | 2.31e-4 | 2.74e-6 | 3.31e-8 |
-| 0.125 | 2.07e-2 | 5.77e-5 | 3.44e-7 | 2.53e-9 |
-| orders | 0.04, 0.93, 0.98, 0.99 | 2.06, 2.17, 2.01, 2.00 | 3.03, 3.14, 3.00, 3.00 | 4.11, 4.10, 3.99, 3.71 |
+| 2 | 1.58e-1 | 1.73e-2 | 1.61e-3 | 1.56e-4 |
+| 1 | 1.56e-1 | 4.18e-3 | 1.96e-4 | 9.09e-6 |
+| 0.5 | 8.19e-2 | 9.29e-4 | 2.22e-5 | 5.28e-7 |
+| 0.25 | 4.14e-2 | 2.31e-4 | 2.77e-6 | 3.33e-8 |
+| 0.125 | 2.09e-2 | 5.78e-5 | 3.47e-7 | 2.53e-9 |
+| orders | 0.02, 0.93, 0.98, 0.99 | 2.05, 2.17, 2.01, 2.00 | 3.03, 3.14, 3.00, 3.00 | 4.10, 4.10, 3.99, 3.72 |
 
 (P the same to two digits.) BDF 4 reaches 2.5e-9 of the signal at
 0.125 ms, where the 1D vessel's own error (kExact 3, RK4 at CFL 0.1 on

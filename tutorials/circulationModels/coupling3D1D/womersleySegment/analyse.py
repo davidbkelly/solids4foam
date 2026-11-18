@@ -58,28 +58,14 @@ def exact(alpha):
     return out
 
 
-# What the wedge mesh discretises (the tutorial's wedge now has its face at
-# distance R and the patch flux scaled by pi/tan(theta/2), which makes the
-# coupled problem the pipe of radius R exactly; the constants below describe
-# a wedge with its edge vertices at R, as before 17 November 2026). A wedge of angle theta with one cell
-# across and a flat outer face at the distance R_c = R cos(theta/2) from the
-# axis (its edge vertices at R) has, at every distance x from the axis,
-# faces and volumes of width 2 x tan(theta/2) instead of the sector's
-# x theta: a uniform factor k = 2 tan(theta/2)/theta. The axisymmetric
-# finite-volume problem is therefore the circular pipe of radius R_c with
-# every flux multiplied by k: Womersley's impedance of the pipe of radius
-# R_c divided by k, i.e. exact_transient(A = k pi R_c^2 = A_WEDGE,
-# R = R_c). The equal-area pipe (radius sqrt(A_WEDGE/pi)) has the same
-# inertance but a viscous resistance k times smaller; against it the
-# comparison floors at about 1e-5 (the first round used it, wrongly).
+# The wedge mesh has its flat outer face at the distance R from the axis
+# and its patch flux scaled by pi/tan(theta/2) (makeCases.py), so the
+# finite-volume problem it discretises is the circular pipe of radius R
+# exactly: the exact solutions below are those of the pipe of area pi R^2.
+# (Before 17 November 2026 the edge vertices were at R, which made it the
+# pipe of radius R cos(theta/2) with every flux times 2 tan(theta/2)/theta.)
 # exact_transient() and exact_transient_profile() take the pipe's area and
 # radius as arguments (defaults: pi R^2 and R).
-import math as _math
-THETA = _math.radians(5.0)
-K_WEDGE = 2*_math.tan(THETA/2)/THETA
-A_WEDGE = (360/5.0)*0.5*R**2*_math.sin(THETA)       # = K_WEDGE pi R_WEDGE^2
-R_WEDGE = R*_math.cos(THETA/2)
-R_EQ = _math.sqrt(A_WEDGE/_math.pi)                 # the equal-area pipe (not used)
 
 
 def impedance(w, alpha, A=A, R=R):
@@ -194,6 +180,14 @@ def load_profiles(case):
     return out
 
 
+def wall_cell(level):
+    """radial width of the wall cell of the wedge mesh of level k (nr = 50 k
+    cells over R graded 10:1 towards the wall, as spaceStudy.py)"""
+    nr = int(round(50*level))
+    q = 0.1**(1.0/(nr - 1))
+    return R*(1 - q)/(1 - q**nr)*q**(nr - 1)
+
+
 def womersley_profile(alpha, Qhat, r, t):
     """u(r, t) of Womersley's solution with flow amplitude Qhat"""
     _, f10, lam = womersley(alpha)
@@ -241,29 +235,20 @@ def main():
                 f"| {key} [{unit}] | {abs(X):.4g} / {abs(W):.4g} / {abs(I):.4g} "
                 f"| {ph(X):.2f} / {ph(W):.2f} / {ph(I):.2f} "
                 f"| {abs(X - W)/abs(W):.2e} | {dph:.3f} |")
-        # The same against the problem the wedge discretises: the pipe of
-        # radius R_WEDGE with its flux times K_WEDGE (area A_WEDGE)
-        lam = 1j**1.5*R_WEDGE*math.sqrt(OMEGA/nu(alpha))
-        f10 = 2*jv(1, lam)/(lam*jv(0, lam))
-        Zeq = 1j*OMEGA*RHO*L3D/(A_WEDGE*(1 - f10))
-        geq, Teq = Zeq/(Zeq + 2*ZC), 2*ZC/(Zeq + 2*ZC)
-        pinc = -1j*P_INC*cmath.exp(-1j*OMEGA*L1D/C0)
-        exeq = {"P_in": (1 + geq)*pinc, "Q": Teq*pinc/ZC, "P_out": Teq*pinc}
-        lines += [f"Against the problem the wedge discretises (the pipe of "
-                  f"radius R cos(theta/2) = {R_WEDGE*1e3:.5f} mm, flux x "
-                  f"{K_WEDGE:.6f}): " + ", ".join(
-                      f"{k} {abs(fitted[k] - exeq[k])/abs(exeq[k]):.1e} / "
-                      f"{(math.degrees(cmath.phase(fitted[k]/exeq[k])) + 180) % 360 - 180:.4f} deg"
-                      for k in ("P_in", "Q", "P_out")), ""]
         profiles = load_profiles(case)
         if profiles:
             errs = []
             for tp, (r, u) in profiles.items():
-                ue = womersley_profile(alpha, fitted["Q"], r, tp)
-                errs.append(np.abs(u - ue).max())
+                # up to the wall cell (the tutorial's mesh is level 1 of
+                # spaceStudy.py): inside it the sampled values converge at
+                # first order only (spaceStudy.wall_cell_r)
+                inside = r <= R - wall_cell(1.0)
+                ue = womersley_profile(alpha, fitted["Q"], r[inside], tp)
+                errs.append(np.abs(u[inside] - ue).max())
             umax = max(np.abs(u).max() for _, (r, u) in profiles.items())
             lines += [f"Mid-length velocity profile over the last period, "
-                      f"{len(profiles)} phases: max |u - u_Womersley| / max |u| "
+                      f"{len(profiles)} phases, from the axis to the wall cell: "
+                      f"max |u - u_Womersley| / max |u| "
                       f"= {max(errs)/umax:.2e}", ""]
         figs[case] = (alpha, t, ports, m, fitted, ex, profiles)
     (HERE/"results.md").write_text("\n".join(lines))

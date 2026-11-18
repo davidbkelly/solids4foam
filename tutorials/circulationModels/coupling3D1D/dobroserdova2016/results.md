@@ -7,7 +7,7 @@
 | 3.5 | reference (10 cm, absorbing) | 1.000 | - | - | - |
 | 3.5 | hard (1D + lumped pipe) | 1.594 | 1.594 | 3.3e-04 / 1.1e-03 | 3.7e-03 / 1.4e-02 |
 | 3.5 | soft (1D + lumped pipe) | 1.128 | 1.128 | 2.2e-04 / 1.9e-03 | 1.3e-03 / 3.4e-03 |
-| 3.5 | hard (1D + pimpleFoam pipe) | 1.596 | 1.596 | 7.7e-03 / 2.1e-02 | 1.2e-02 / 4.7e-02 |
+| 3.5 | hard (1D + pimpleFoam pipe) | 1.594 | 1.594 | 7.7e-03 / 2.1e-02 | 1.2e-02 / 4.7e-02 |
 | 7.0 | reference (10 cm, absorbing) | 1.000 | - | - | - |
 | 7.0 | hard (1D + lumped pipe) | 1.228 | 1.229 | 2.9e-04 / 1.2e-03 | 2.7e-03 / 9.8e-03 |
 | 7.0 | soft (1D + lumped pipe) | 1.022 | 1.022 | 8.9e-05 / 7.8e-04 | 6.5e-04 / 1.7e-03 |
@@ -24,7 +24,7 @@ Hard coupling, sine, periodic state: |Gamma| = 1 at every c0; with the inlet's o
 | 3.5 | reference (10 cm, absorbing) | 1.000 | - | - | - |
 | 3.5 | hard (1D + lumped pipe) | 2.266 | 2.267 | 9.5e-03 / 4.4e-02 | 2.6e-01 / 2.3e+00 |
 | 3.5 | soft (1D + lumped pipe) | 1.348 | 1.466 | 3.1e-02 / 3.5e-01 | 6.5e-02 / 4.1e-01 |
-| 3.5 | hard (1D + pimpleFoam pipe) | 2.263 | 2.265 | 9.3e-03 / 3.9e-02 | 2.5e-01 / 2.2e+00 |
+| 3.5 | hard (1D + pimpleFoam pipe) | 2.265 | 2.267 | 9.4e-03 / 3.9e-02 | 2.5e-01 / 2.2e+00 |
 | 7.0 | reference (10 cm, absorbing) | 1.000 | - | - | - |
 | 7.0 | hard (1D + lumped pipe) | 2.317 | 2.326 | 1.1e-02 / 3.9e-02 | 2.2e-01 / 2.7e+00 |
 | 7.0 | soft (1D + lumped pipe) | 1.348 | 1.348 | 2.2e-02 / 3.0e-01 | 7.4e-02 / 4.0e-01 |
@@ -41,7 +41,7 @@ Hard coupling, sine, periodic state: |Gamma| = 1 at every c0; with the inlet's o
 | 3.5 | reference (10 cm, absorbing) | 1.000 | - | - | - |
 | 3.5 | hard (1D + lumped pipe) | 1.700 | 1.700 | 9.9e-05 / 2.3e-04 | 1.1e-04 / 3.0e-04 |
 | 3.5 | soft (1D + lumped pipe) | 1.007 | 1.007 | 1.2e-05 / 4.6e-05 | 2.3e-05 / 9.3e-05 |
-| 3.5 | hard (1D + pimpleFoam pipe) | 1.698 | 1.698 | 2.0e-03 / 5.3e-03 | 1.7e-03 / 4.8e-03 |
+| 3.5 | hard (1D + pimpleFoam pipe) | 1.700 | 1.700 | 2.1e-03 / 5.3e-03 | 1.7e-03 / 4.8e-03 |
 | 7.0 | reference (10 cm, absorbing) | 1.000 | - | - | - |
 | 7.0 | hard (1D + lumped pipe) | 1.570 | 1.570 | 6.1e-05 / 1.6e-04 | 5.1e-05 / 1.5e-04 |
 | 7.0 | soft (1D + lumped pipe) | 1.119 | 1.119 | 3.8e-06 / 1.8e-05 | 5.0e-06 / 2.3e-05 |

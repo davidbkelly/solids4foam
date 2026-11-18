@@ -239,7 +239,7 @@ def analyse():
                  "Vessels: linearised 1D equations, kExact (degree 3) + RK4, "
                  "CFL 0.5; pipe: pimpleFoam, BDF 4; full amplitude. dx and "
                  "dt refined together. Errors against the closed form "
-                 f"(tau = {TAU*1e3:.4f} ms with the 32-sided patch area), "
+                 f"(tau = {TAU*1e3:.4f} ms with the patch area pi R^2), "
                  "relative to the peaks: 3D flux, pressures at the pipe ends "
                  "(max of the two), profiles of Q along both vessels at "
                  f"t = {END} s (cell averages of the closed form).", ""]

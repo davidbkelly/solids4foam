@@ -66,7 +66,7 @@ class `RigidSegment` of that script.
 | 1D vessels | two straight vessels, proximal `L1` = 1 m and distal `L2` = 1 m, radius `R` = 10 mm at the diastolic pressure `Pd` = 0, wall thickness `h` = 1.5 mm, Young's modulus `E` = 400 kPa, external pressure 0, inviscid (`mu` = 0), blood density `rho` = 1050 kg/m3 (the single-pulse vessel of Boileau et al. 2015, Table II) |
 | 1D model | the linearised 1D equations about the state at rest: `dA/dt + dQ/dx = 0`, `dQ/dt + c0^2 dA/dx = 0`, `P = (rho c0^2/A0) (A - A0)`, with `A0 = pi R^2` and `c0` the wave speed of the sqrtElastic law at `A0`: `c0^2 = 2 E h/(3 rho R)` = (6.1721 m/s)^2; `Zc = rho c0/A0` = 2.0629e7 Pa s/m3. A code with only the nonlinear equations should run the inflow scaled by 1e-3 (then the nonlinear error is 2e-5 of the peak at most) |
 | 3D pipe | a straight rigid pipe of length `l` = 80 mm and radius 10 mm between the proximal vessel's downstream end and the distal vessel's upstream end; incompressible inviscid flow (or slip walls), so the exact 3D solution is plug flow; `rho` as above |
-| pipe cross-section `A3D` | the exact solution's inertance is `L = rho l/A3D` with `A3D` the area of the 3D mesh's inlet patch, which the 3D solution has exactly. The tutorial's O-grid has a 32-sided wall polygon, `A3D = 16 R^2 sin(pi/16)` = 0.99359 pi R^2 = 3.121445e-4 m2, `tau = L/(2 Zc)` = 6.5226 ms. A mesh with another patch area uses its own `A3D` (`RigidSegment(A3D=...)`); a 1D reduction of the pipe (an inertance element) uses `pi R^2` (`tau` = 6.4807 ms) |
+| pipe cross-section `A3D` | the exact solution's inertance is `L = rho l/A3D` with `A3D` the area of the 3D mesh's inlet patch, which the 3D solution has exactly. The tutorial's O-grid has a 32-sided wall polygon with its vertex radius scaled by `sqrt(pi/(16 sin(pi/16)))` = 1.003222, so that `A3D = pi R^2` exactly and `tau = L/(2 Zc)` = 6.4807 ms, the same as for a 1D reduction of the pipe (an inertance element). A mesh with another patch area must use its own `A3D` (`RigidSegment(A3D=...)`): the unscaled 32-gon (0.99359 pi R^2) would give `tau` = 6.5226 ms |
 | inflow | prescribed flow at the proximal vessel's upstream end: `Q(t) = 1e-6 exp(-1e4 (t - 0.05)^2)` m3/s (a Gaussian of standard deviation `sigma = 1/sqrt(2e4)` = 7.071 ms peaking at `t` = 0.05 s; the incident pressure peak is `Zc` x 1e-6 = 20.629 Pa). The inlet reflects returning waves with +1 in pressure |
 | outlet | non-reflecting end of the distal vessel |
 | initial state | everything at rest, `P` = 0, `Q` = 0, `A = A0` |
@@ -151,8 +151,8 @@ does; milestone M1):
   (tutorial `rigidSegmentInertance`).
 
 With the CFD (milestone M3, tutorial `rigidSegment3D`: pimpleFoam, slip
-walls, `circulation1DCoupling` at both ends, `tau` = 6.52 ms with the 3D
-patch area):
+walls, `circulation1DCoupling` at both ends, `tau` = 6.48 ms with the 3D
+patch area pi R^2):
 
 - the 3D flux and pipe pressures agree with the closed form to the 1D
   discretisation error (1.1e-3 and 3.5e-3 of the peak); the finest coupled
@@ -161,7 +161,7 @@ patch area):
   2.14, implicit 2 2.00; the errors match the surrogate's to about 1%;
 - with `BDF 3` and `BDF 4` (bdfDdtScheme, solids4FoamModels), measured on the
   3D flux: explicit order `p` at `min(p, q)`; implicit coupling of orders 1
-  and `q` at `q` (2.98; 3.78 where the error, 5e-7, nears the vessels' time
+  and `q` at `q` (2.98; 3.70 where the error, 6e-7, nears the vessels' time
   error), since within a step the pipe sees only the end-of-step pressure, a
   function of the end-of-step flow. The waves the ports send into the vessels
   carry the shape of the forcing over each step, though: there implicit order
@@ -178,8 +178,8 @@ amplitude, dx and dt refined together (2.5 mm and 2 ms to 0.3125 mm and
 
 | coupling | 3D flux | pipe-end pressures | waves in the vessels |
 |---|---|---|---|
-| implicit 4 | 3.90, 3.98, 4.08 | 3.89, 3.99, 4.09 | 3.95, 4.00, 4.09 |
-| explicit 4 | 3.90, 3.97, 3.99 | 3.90, 3.98, 3.97 | 3.96, 4.00, 3.98 |
+| implicit 4 | 3.90, 3.98, 4.08 | 3.89, 3.99, 4.09 | 3.96, 4.00, 4.09 |
+| explicit 4 | 3.90, 3.97, 3.99 | 3.90, 3.98, 3.98 | 3.96, 4.00, 3.98 |
 | implicit 2 | 3.90, 3.98, 4.08 | 3.89, 3.99, 4.08 | 1.60, 1.89, 1.97 |
 | implicit 1 | 3.89, 3.91, 2.43 | 3.79, 3.34, 1.87 | 0.98, 1.00, 1.00 |
 
@@ -257,9 +257,10 @@ ladder: implemented and measured in `tutorials/circulationModels/coupling3D1D/wo
 | interface | continuity of flow and static pressure at both pipe ends (the 3D velocity free to develop: zero-gradient or pressure-driven inlet velocity) |
 | exact solution | linear: the pipe is the series impedance of Womersley (1955), `Z(w) = i w rho l/(A (1 - F10))`, `F10 = 2 J1(L)/(L J0(L))`, `L = i^(3/2) R sqrt(w/nu)`, the Poiseuille resistance at w = 0; `Gamma = Z/(Z + 2 Zc)`, `T = 2 Zc/(Z + 2 Zc)`. Periodic state: `P_in = (1 + Gamma) P`, `Q = T P/Zc`, `P_out = T P` for the incident amplitude P at the inlet port (delayed by L1/c0). Transient from rest: the incident wave convolved with the impulse responses of (1 + Gamma), T/Zc and T at every frequency (FFT; `exact_transient`), and the mid-length axial profile `u(r, t)` from the flow's spectrum and Womersley's profile per frequency (`exact_transient_profile`); the two agree with the periodic solution to 1e-12 at late times |
 | quantities of interest | amplitude and phase of the port pressures and the flow in the periodic state (fitted over the last two periods, after 3 R^2/(j01^2 nu) seconds of transient: 6 s at alpha 6); the port time series over the first second; the mid-length velocity profile at eight instants of the first second and over the last period |
-| error norm | amplitude relative to the exact one, phase in degrees; RMS of the time series relative to the RMS of the exact; max over the instants of max over r of |u - u_exact| / max |u_exact| |
+| error norm | amplitude relative to the exact one, phase in degrees; RMS of the time series relative to the RMS of the exact; max over the instants of max over r of |u - u_exact| / max |u_exact|, r from the axis to the wall cell (values sampled inside the wall cell converge at first order only: 0.8 on a uniform wedge, against 2.0 everywhere else) |
 | reference files | `reference/alpha{3,6,12}_ports.csv` (0 to 6 s every 0.1 ms), `_periodic.csv` (complex amplitudes, Gamma, T), `_profiles.csv` (u(r, t) at r in 101 points, t = 0.5 to 0.9375 s every 1/16 s) |
 | refinement | the 3D mesh (the 1D error is negligible: 2.5 mm cells on a 6 m wavelength); the tutorial's wedge is 50 radial cells graded 10:1 to the wall by 100 axial |
+| wedge geometry | a one-cell wedge of angle theta with its flat outer face at the distance R_c from the axis discretises, for any radial grading, the circular pipe of radius R_c with every flux times k = 2 tan(theta/2)/theta (1.000635 at 5 degrees): not the pipe of radius R when the edge vertices are at R (then R_c = R cos(theta/2)), and not the equal-area pipe (same inertance, viscous resistance k times smaller; either comparison floors at 1e-5 to 1e-4 on every mesh). The tutorial's wedge has its face at R_c = R and its patch flux scaled by pi/tan(theta/2) = 71.954 (`flowScale`), which makes the coupled problem exactly the pipe of radius R |
 | physiological amplitude | alpha = 6 with an incident wave of 5 kPa (0.12 rho c0^2, where the 1D equations are nonlinear: 6 to 11 % from the scaled linear solution), the first second from rest, on the nonlinear 1D equations: no closed form; numerical reference from `physiological.py` (100 x 200 wedge, BDF 4 and coupling order 4 at dt = 0.25 ms, kExact 3 + RK4 vessels on 800 cells), `reference/alpha6_physiological_{ports,profiles}.csv`, labelled numerical; the 50 x 100 wedge differs from it by 6e-6 at the ports and 8e-4 on the profile (`physiological.md`) |
 
 ## 1c. The open-ended pipe resonator (specification)
@@ -273,7 +274,7 @@ with its exact solution: `tutorials/circulationModels/coupling3D1D/dobroserdova2
 | 1D vessel | L = 50 mm, R = 10 mm, wall giving c0 = 3.5 m/s (also 7 and 10.5), inviscid, rho = 1000 kg/m3, from rest at P = 0; linearised (or the flow small: 1e-7 m3/s is 1e-4 of A c0) |
 | inlet | prescribed flow Qin(t) = 1e-7 sin(2 pi t/0.3) m3/s ("sine") or 1e-7 for 0 <= t <= 0.1 s, then 0 ("step"), from t = 0; the inlet reflects returning waves with +1 in pressure |
 | 3D pipe | rigid, length l = 50 mm, radius 10 mm, inviscid (or slip), open at its far end: zero traction, p = 0 ("hard coupling"); or, "soft coupling", the 1D vessel feeds the pipe through their 0D element R1 - C - R2 with R1 = R2 = Zc/2 and C = l0 A/(rho c0^2), l0 = 1 mm |
-| pipe cross-section | the inductance of the exact solution is rho l/A with A the area the 3D mesh has (the tutorial's 32-gon, A3D = 0.99359 pi R^2) or pi R^2 for a 1D reduction; the two differ by 0.64 % in L and, over the 21 resonant periods compared, by a factor 5 in the apparent error |
+| pipe cross-section | the inductance of the exact solution is rho l/A with A the area the 3D mesh has: the tutorial's 32-gon is scaled to pi R^2, the same as a 1D reduction; the unscaled 32-gon (0.99359 pi R^2) differs by 0.64 % in L, which over the 21 resonant periods compared makes the apparent error 5 times larger |
 | exact solution | the lossless line of impedance Zc = rho c0/A and transit time td = L/c0 between the flow source and the lumped load: with f and g the forward and backward waves at the interface (P = f + g, Q = (f - g)/Zc), `f(t) = Zc Qin(t - td) + g(t - 2 td)` and `L dQ/dt = P` (hard) or the RCRL circuit (soft); integrated as delay equations (Heun, n2 steps per round trip 2 td; n2 = 64000 gives 1e-8) |
 | non-smoothness | the sine starts from rest with a finite slope, so dQ/dt and hence the pipe pressure P = L dQ/dt jump at every arrival of the wave front (every 2 td = 28.6 ms at 3.5 m/s) and Q has a kink there; the step input has jumps in Q itself. A 1D scheme resolves the jumps at first order in dx and the kinks at second, whatever its nominal order (see the README's order-in-time study) |
 | quantities of interest | Q and P at the interface over the first period (sine, 0.3 s) or 0.5 s (step); their peaks |
