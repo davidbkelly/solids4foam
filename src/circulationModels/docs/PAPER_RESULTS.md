@@ -1175,12 +1175,22 @@ The difference between the installed February build and the checkout
 
 | range | part of the 2.0 % | commit | what it is |
 |---|---|---|---|
-| February - 1 August | 1.47 % | being bisected, with the PETSc fix patched into each commit (`scratchpad/bis/driveA.sh`; the February-era commits reproduce the installed build to 3.5e-4 once patched) | - |
+| February - 1 August | 1.47 % | `739fa4afa` "Fix for least squares boundary face usage (#276)", 8 June | a bug fix in the solid's least-squares gradient (which 3dTube's solid uses): boundary-face values were used where they should not be (new `useBoundaryFaceValues_DD`/`_sigmaHyd` flags in `solidModel`); the commit itself moved 3dTube's regression reference (max displacement 7.83e-7 to 2.24e-7, mean force 0.0489 to 0.0321) |
 | 10 - 24 August | 0.62 % | `53b669539` "Synchronise cached interface geometry and build mappings from reference geometry (#375)", 19 August | a bug fix: the FSI interface applied the fluid pressure with the face normals of the initial configuration for the whole run |
 | October | 0.05 % | `28751407c` "FSI: fix two defects in the wall force and the interface point transfer" | a bug fix (tmp aliasing in the wall viscous force at gcc -O3; degenerate barycentric weights) |
 
-Both identified parts are fixes of defects in the February code, so for
-them the checkout build is the correct one. The paper's FSI numbers
+Range A (bisected with the PETSc fix patched into each commit,
+`scratchpad/bis/driveA.sh`; the February-era commits reproduce the
+installed build to 3.5e-4 once patched) ended on four candidates, three of
+which do not build on xenosim and were skipped: `55a8fa68f` (#248, block-coupled
+incompressible: only new files and build lists, no change to code 3dTube
+runs), `1f56ccd34` (#272, tutorial READMEs only), `739fa4afa` (#276) and
+`a2e43c33e` (#281, a test application only). Only #276 changes code that
+3dTube runs, and it updated 3dTube's own regression values, so it is the
+1.47 %.
+
+All three parts are fixes of defects in the February code, so the
+checkout build is the correct one. The paper's FSI numbers
 should come from the checkout build; the report's (installed-library)
 Formaggia numbers carry those defects.
 
