@@ -53,6 +53,16 @@ work goes.
   low-order coupling interacting with the incident one at second order in
   amplitude, which the linear problem does not have.
 
+- **Section measurements on the FSI tubes (19 November).** Two errors in
+  the faceZone function objects: the flow summed `phi`, which the solver
+  leaves relative to the mesh, on zones that move axially with the wall
+  (10-20 % off), and in parallel runs the pressure on processor faces was
+  the neighbour cell's (half a cell away, up to 3.5 % of the pulse on B4
+  where Scotch cut a section). Fixed by the `sectionFields` function object
+  (`phiAbsolute`, `pSection`) and every affected full tube rerun. On B4 only
+  the 3.75 cm row moves (4.6 to 4.7, 2.5 to 2.4 / 2.5e-2); the pulse and
+  plane-stress conclusions stand (details at the end).
+
 ## Preliminaries
 
 **Input files.** The report
@@ -1305,3 +1315,86 @@ reference), `BENCHMARKS3D1D.md` specifications 1, 1b (wedge geometry and the
 profile norm) and 1c, the paper (`sections/exact.tex`, `analysis.tex`) and
 the thesis (chapters 7-10, 13).
 
+## Section measurements corrected, and the runs that depended on them (19-20 November)
+
+**The two errors.** (1) solids4foam's `pimpleFluid` ends each step with
+`fvc::makeRelative(phi, U)`, so function objects see the flux relative to
+the mesh; the interior faceZones of an FSI tube move axially with the wall,
+whose axial waves (sqrt(E/rho_s)) run ahead of the pulse, so `sum(phi)` is
+not the flow past the section (10 % RMS at z = 10 cm on the Businaro tube).
+Patches whose points are fixed (inlet, outlet) are right, so the coupler's
+interface flux was never affected. (2) `surfaceFieldValue` takes
+0.5 (own + nei) on interior faces but the boundary value on processor
+faces, and in ESI v2412 the processor patch holds the neighbour cell's
+value, so a section on a processor boundary reads the pressure half a cell
+away, error about (dz/2c) dP/dt: 46 Pa (3.5 % of the pulse) on B4. Flows
+are unaffected by (2). **Fix:** a coded function object `sectionFields`
+(both `makeCases.py`) registers `phiAbsolute = phi + mesh.phi()` and a
+surface field `pSection`, the mean of the two cells on every face; the
+zones use `sum(phiAbsolute)` and `areaAverage(pSection)`. Verified against a
+serial run to 0.008 Pa, and identical to the old value on uncut sections.
+
+**Reruns.** Serial coupled runs were affected by (1) only, through their 3D
+sections, and were rerun on the Mac. Full tubes, xenosim
+(`solids4foam-paper`, checkout build): pulse sweep `full3D_T3/6/12/24` (job
+20980), refinement `full3D` and `full3D_x2` (20981), clamped level 2
+`coupled_c5p25_x2` (20370, serial). The Mac rerun of the three B4 full tubes
+was killed by a reboot (20 November, 00:36). The refinement level-1
+`full3D` is file-identical to B4's `full3D_lib2` (only the rank count
+differs), so its outputs stand in for it (against the Mac's partial rerun:
+8.4e-5 of the peak or less over 0-9.2 ms). `full3D_closed` rerun on xenosim
+(job 21109). The installed-library `full3D` (February build) was not rerun.
+
+**B4 (item 8a).** Only the z = 3.75 cm row changes (the section on a
+processor boundary): full tube 1133 Pa (was 1132); RMS clamped / free /
+spring 4.7 / 2.4 / 2.5e-2 (was 4.6 / 2.5 / 2.5e-2). Flow RMS differences
+at the sections fall from 5-21 % to 2-5 % of the peak flow.
+
+**R6 (pulse length) and plane stress.** `pulse.md` and
+`pulse_planeStress.md` regenerated: largest change in the plain RMS table
+3.51 to 3.78e-2 (T = 24 ms, z = 6.25 cm), peaks within 1 Pa; the R6 table's
+peak ratios, shifts and RMS after the shift are unchanged at the digits
+shown. Full-tube speeds (each section's own half-peak): T = 6 ms 5.09 /
+5.18 (was 5.17), 12 ms 5.01 (was 5.02) / 5.11, 24 ms 5.25 / 5.07 (was
+5.06) m/s, so the long-pulse speed away from the inlet is 5.07-5.11 m/s.
+Plane stress at T = 24 ms: the best-aligning shift grows from 0.40 ms at
+z = 6.25 cm to 0.67 ms at 12.5 cm (was 0.35), against 0.50 (was 0.45) to
+1.17 ms in plane strain: the lag along the 1D part is cut to 40 % (0.27
+against 0.67 ms), not removed.
+
+### R5 / 8(c). Refinement (verified)
+
+`refineStudy.py` (xenosim; `refine.md`, `plots/refine.png`): level 2
+doubles the cells of both regions in every direction at dt = 25 us, the
+tutorial's 3 ms pulse, coupled c0 = 5.25 m/s, each level against the full
+tube of the same level.
+
+| end | z = 5 (interface), level 1 / level 2 | level 2 - level 1, sections 1.25-7.5 cm |
+|---|---|---|
+| full tube | - | 3.1e-3 to 8.1e-3 |
+| clamped | 4.75e-2 / 4.57e-2 | 3.6e-3 to 1.1e-2 |
+| free | 2.20e-2 / 2.08e-2 | 4.2e-3 to 7.8e-3 |
+| spring | 2.52e-2 / 2.39e-2 | 4.1e-3 to 1.1e-2 |
+
+Every run moves by 3e-3 to 1.1e-2 of the pulse between levels; the
+coupled-against-full differences on the finer mesh are 2-10e-2, so they
+are converged. The interface difference shrinks slightly with refinement
+for every end condition, so the reflection does not grow with refinement
+(Malossi's question). On level 2 the clamped end differs from free and
+spring by 3-6e-2, far above the mesh sensitivity; free and spring differ
+by 0.2-1.3e-2, within it. What remains at the interface is the structural
+cut.
+
+### Businaro cross-code case (verified)
+
+`businaro2026` (committed e640deaef; xenosim `solids4foam-r4`, job 20954):
+Businaro's 10 cm FSI tube + 20 cm 1D vessel (R = 1 cm, h = 1 mm, StVK,
+E = 700 kPa, 2 kPa Gaussian pulse, BDF2, dt = 0.1 ms), against a 45 cm full
+tube, his 30 cm tube with Rt, and the 1D vessel alone. Interface flow
+mismatch: 2.4e-8 (implicit order 2), 9.5e-3 (explicit order 1) of the peak,
+against his 5.6e-2; e_P zero by construction (his 2.2e-4). Peak interface
+flow 1.028e-4 against his 1.033e-4 m3/s. Coupled against the full tube
+(RMS P / pulse): 0.9 % at z = 5, 2.1 % at the interface, 4.4 / 6.5 / 10.1 %
+at 15 / 20 / 30 cm; 1D alone 2.4 / 5.2 / 7.9 / 10.0 / 12.8 %. The growth
+beyond the interface is the 1D model's speed, 6.23 against 5.67 m/s. In the
+paper (`compliant.tex`, "A second code") and the thesis (chapter 11).
