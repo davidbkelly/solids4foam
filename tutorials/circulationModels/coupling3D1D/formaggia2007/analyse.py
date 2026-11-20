@@ -6,7 +6,11 @@
 
 At each section z the mean pressure and the flow are taken from the faceZone
 function objects of the 3D runs (quarter tube: the flow is multiplied by 4,
-the kinematic pressure by rho), from the coupler's log of the coupled runs
+the kinematic pressure by rho; the flow is phi + meshPhi, the flux through
+the moving faces, since the solver leaves phi relative to the mesh and the
+sections move axially with the wall; the pressure is pSection, the mean of
+the two cells of every face, processor faces included, where p itself holds
+the neighbour cell's value), from the coupler's log of the coupled runs
 at the interface z = 5 cm (the port) and beyond it (the vessel probes), and
 from the probes of the 1D vessel alone. Every runs/coupled* directory is a
 coupled run (makeCases.py --c0 names them by their wave speed). The error of
@@ -161,12 +165,19 @@ def ref_for(c):
     return "full3D"
 
 
+def own_runs(pattern):
+    """The runs of this comparison: the pulse sweep's (_T) and the refinement
+    study's (_x) have their own reports, pulse.md and refine.md"""
+    return sorted(p.name for p in RUNS.glob(pattern)
+                  if p.is_dir() and "_T" not in p.name and "_x" not in p.name)
+
+
 def main():
-    coupled = sorted(p.name for p in RUNS.glob("coupled*") if p.is_dir())
+    coupled = own_runs("coupled*")
     lines = ["# Formaggia et al. (2007), section 5: the pulse tube continued "
              "by a 1D vessel", ""]
     data = {}
-    for ref in sorted(p.name for p in RUNS.glob("full3D*") if p.is_dir()):
+    for ref in own_runs("full3D*"):
         if (RUNS/ref/"postProcessing"/"fluid").is_dir():
             if not finished(ref, "log.solids4Foam"):
                 lines += [f"**{ref} has not finished: partial data.**", ""]

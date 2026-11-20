@@ -48,7 +48,14 @@ with the 1D law's own 4/3 factor, i.e. nu = 1/2). The sqrtElastic law has
 runs), 5 (the interface: a zone in `full3D`, the port in `coupled`), 6.25,
 7.5, 10 and 12.5 cm (3D in `full3D`, 1D probes in `coupled`) record the mean
 pressure and the flow; `solidPointDisplacement` the radial wall displacement
-at z = 2.5 cm.
+at z = 2.5 cm. A coded function object, `sectionFields`, gives the zones
+what they measure: the solver leaves `phi` relative to the mesh and the
+sections move axially with the wall, so the flow is the sum of
+`phiAbsolute = phi + meshPhi`; on a processor boundary `p` holds the
+neighbour cell's value, so the pressure is the area average of `pSection`,
+the mean of the two cells of every face. Without them the flows at the
+sections were 10-20 % off, and a section on a processor boundary read the
+pressure half a cell away (3.5 % of the pulse).
 
 ```bash
 ./Allrun            # full3D (~10 min), coupled (~4 min) and only1D together; results.md, plots/
@@ -56,7 +63,8 @@ at z = 2.5 cm.
 
 The dictionary of the 1D network is `constant/fluid/circulation1DProperties`
 (the coupler registers on the fluid region's mesh). Needs solids4foam with
-PETSc; the function objects use `libfieldFunctionObjects`.
+PETSc; the function objects use `libfieldFunctionObjects` and
+`libutilityFunctionObjects`.
 
 ---
 
@@ -131,7 +139,7 @@ of solids4foam (the installed library has no `solidSpringDashpot`; see
 | z [cm] | full tube peak [Pa] | clamped | free | spring | RMS(P - full) / pulse: clamped / free / spring |
 |---|---|---|---|---|---|
 | 2.5 | 1271 | 1303 | 1233 | 1233 | 3.0e-2 / 4.4e-2 / 5.1e-2 |
-| 3.75 | 1132 | 1169 | 1108 | 1111 | 4.6e-2 / 2.5e-2 / 2.5e-2 |
+| 3.75 | 1133 | 1169 | 1108 | 1111 | 4.7e-2 / 2.4e-2 / 2.5e-2 |
 | 5 (interface) | 1077 | 1104 | 1093 | 1098 | 4.4e-2 / 1.8e-2 / 2.2e-2 |
 | 6.25 | 1045 | 1096 | 1085 | 1089 | 6.9e-2 / 3.6e-2 / 4.6e-2 |
 

@@ -25,7 +25,10 @@ c0^2/(2 h) (the law's 4/3 factor is the nu = 1/2 of Formaggia's 1D model).
 
 The 3D cases are quarter tubes (two symmetry planes): the coupled port has
 flowScale 4. Sections of the fluid at z = 1.25, 2.5, ... cm are faceZones
-(topoSet) on which surfaceFieldValue writes the mean pressure and the flow.
+(topoSet) on which surfaceFieldValue writes the mean pressure and the flow,
+the flow through the moving faces (phi + meshPhi) and the pressure as the
+mean of the two cells on every face, processor faces included (see
+SECTION_FIELDS).
 """
 import argparse
 import math
@@ -87,12 +90,107 @@ def zone_name(zcm):
     return "z" + f"{zcm:g}".replace(".", "p")
 
 
+# The fields the sections are measured on, registered by this object ahead
+# of the others. The flow: the solver leaves phi relative to the moving
+# mesh, and the faceZones move axially with the wall (its axial waves run
+# ahead of the pulse), so their sum(phi) is not the flow past the section;
+# phiAbsolute = phi + meshPhi is (meshPhi itself is not registered). The
+# pressure: surfaceFieldValue takes the mean of the two cells on an interior
+# face, but on a processor face the stored value, which is the neighbour
+# cell's, so a section on a processor boundary would be read half a cell
+# away; pSection is the mean of the two cells on every face.
+SECTION_FIELDS = """    sectionFields
+    {
+        type            coded;
+        libs            (utilityFunctionObjects);
+        name            sectionFields;
+        region          fluid;
+        codeExecute
+        #{
+            const fvMesh& m = mesh();
+            const surfaceScalarField& phi =
+                m.lookupObject<surfaceScalarField>("phi");
+            surfaceScalarField* ptr =
+                m.getObjectPtr<surfaceScalarField>("phiAbsolute");
+            if (!ptr)
+            {
+                ptr = new surfaceScalarField
+                (
+                    IOobject
+                    (
+                        "phiAbsolute",
+                        m.time().timeName(),
+                        m,
+                        IOobject::NO_READ,
+                        IOobject::NO_WRITE,
+                        IOobject::REGISTER
+                    ),
+                    phi
+                );
+                ptr->store();
+            }
+            *ptr = phi;
+            if (m.moving())
+            {
+                *ptr += m.phi();
+            }
+
+            const volScalarField& p = m.lookupObject<volScalarField>("p");
+            surfaceScalarField* ps =
+                m.getObjectPtr<surfaceScalarField>("pSection");
+            if (!ps)
+            {
+                ps = new surfaceScalarField
+                (
+                    IOobject
+                    (
+                        "pSection",
+                        m.time().timeName(),
+                        m,
+                        IOobject::NO_READ,
+                        IOobject::NO_WRITE,
+                        IOobject::REGISTER
+                    ),
+                    m,
+                    dimensionedScalar(p.dimensions(), Zero)
+                );
+                ps->store();
+            }
+            const labelUList& own = m.owner();
+            const labelUList& nei = m.neighbour();
+            scalarField& psi = ps->primitiveFieldRef();
+            forAll(nei, facei)
+            {
+                psi[facei] = 0.5*(p[own[facei]] + p[nei[facei]]);
+            }
+            auto& psb = ps->boundaryFieldRef();
+            forAll(psb, patchi)
+            {
+                const fvPatchScalarField& pp = p.boundaryField()[patchi];
+                if (pp.coupled())
+                {
+                    const scalarField mean
+                    (
+                        0.5*(pp.patchInternalField() + pp.patchNeighbourField())
+                    );
+                    psb[patchi] = mean;
+                }
+                else
+                {
+                    psb[patchi] = pp;
+                }
+            }
+        #};
+    }
+"""
+
+
 def control_dict(coupled, planes, dt, end=END_TIME):
     libs ='libs            ("libcirculation1DCoupling.so");\n\n' if coupled else ""
-    fos = ""
+    fos = SECTION_FIELDS
     for zcm in planes:
         n = zone_name(zcm)
-        for suffix, op, field in (("P", "areaAverage", "p"), ("Q", "sum", "phi")):
+        for suffix, op, field in (("P", "areaAverage", "pSection"), ("Q", "sum", "phiAbsolute")):
             fos += f"""    {n}_{suffix}
     {{
         type            surfaceFieldValue;
