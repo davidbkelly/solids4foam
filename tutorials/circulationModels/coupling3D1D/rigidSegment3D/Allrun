@@ -1,9 +1,9 @@
 #!/bin/bash
-# The rigid-segment 3D-1D benchmark, one case: a pimpleFoam pipe coupled at
-# both ends to 1D vessels (implicit, order 2, dt = 0.5 ms; about 2 minutes),
-# and the 1D-only run with the pipe as an inertance node; then the comparison
-# with the closed form. ./Allrun-sweep runs the whole study.
-#   PYTHON=/path/to/python ./Allrun     a Python with numpy and scipy (and matplotlib)
+# The rigid-segment 3D-1D benchmark, one case: an 8 cm rigid pipe
+# (pimpleFoam) coupled at both ends to 1 m elastic 1D vessels, implicit
+# coupling of order 2, dt = 0.5 ms; about 2 minutes. Then the check against
+# the closed form (reference/rigidSegment_pipe.csv) and the plot (gnuplot).
+# The whole study is ./Allrun-sweep and ./Allrun-highOrder (Python).
 cd "$(dirname "$0")" || exit 1
 : "${WM_PROJECT_DIR:?OpenFOAM environment not sourced}"
 
@@ -14,5 +14,29 @@ source solids4FoamScripts.sh
 solids4Foam::caseDoesNotRunWithFoamExtend
 solids4Foam::caseDoesNotRunWithOpenFOAMOrg
 
-"${PYTHON:-python3}" sweep.py --one || exit 1
-"${PYTHON:-python3}" analyse.py || echo "analyse.py failed: it needs numpy and scipy"
+# Mesh the pipe and run: stock pimpleFoam, with the 1D vessels and the
+# coupling loaded from libcirculation1DCoupling by system/controlDict
+blockMesh > log.blockMesh 2>&1 || { echo "blockMesh failed: see log.blockMesh"; exit 1; }
+pimpleFoam > log.pimpleFoam 2>&1 || { echo "pimpleFoam failed: see log.pimpleFoam"; exit 1; }
+
+# Largest error against the closed form, relative to the incident peaks.
+# The run's inflow is the closed form's times 1e-3 (the pulse stays linear),
+# so its incident peaks are Q = 1e-9 m3/s and P = Zc Q = 0.0206288 Pa.
+awk -F, 'NR == FNR { if ($0 !~ /^[#t]/) { k = sprintf("%.4f", $1)
+                         q[k] = 1e-3*$2; p1[k] = 1e-3*$3; p2[k] = 1e-3*$4 }
+                     next }
+         !/^#/ { k = sprintf("%.4f", $1)
+                 if (k in q) { e = $3 - q[k];  if (e < 0) e = -e; if (e > eq)  eq = e
+                               e = $4 - p1[k]; if (e < 0) e = -e; if (e > ep1) ep1 = e
+                               e = $6 - p2[k]; if (e < 0) e = -e; if (e > ep2) ep2 = e } }
+         END { printf "max error / incident peak: Q %.2e, P1 %.2e, P2 %.2e", \
+                      eq/1e-9, ep1/0.0206288, ep2/0.0206288
+               print "   (expected 1.09e-03, 3.51e-03, 1.09e-03)" }' \
+    reference/rigidSegment_pipe.csv FS=' ' \
+    postProcessing/circulation1DCoupling/0/coupling.dat
+
+# Plot the run against the closed form (rigidSegment3D.png, .pdf)
+if command -v gnuplot > /dev/null
+then
+    gnuplot rigidSegment3D.gnuplot && echo "plots: rigidSegment3D.png, rigidSegment3D.pdf"
+fi

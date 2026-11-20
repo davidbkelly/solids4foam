@@ -120,6 +120,13 @@ def edit(path, pairs):
     path.write_text(s)
 
 
+def copy_case(dst):
+    """This case (0/, constant/, system/) into dst, without a mesh that
+    ./Allrun may have left in constant/polyMesh"""
+    for d in ("0", "constant", "system"):
+        shutil.copytree(HERE/d, dst/d, ignore=shutil.ignore_patterns("polyMesh"))
+
+
 def finished(case):
     log = case/"log.pimpleFoam"
     return log.is_file() and log.read_text().rstrip().endswith("End")
@@ -131,7 +138,7 @@ def setup(scheme, order, n, dt):
         return None
     if case.exists():
         shutil.rmtree(case)
-    shutil.copytree(HERE/"base", case)
+    copy_case(case)
     edit(case/"system"/"controlDict", [
         (r"^deltaT\s+\S+;", f"deltaT          {dt!r};"),
         (r"^endTime\s+\S+;", f"endTime         {END!r};"),

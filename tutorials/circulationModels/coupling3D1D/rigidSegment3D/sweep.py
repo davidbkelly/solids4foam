@@ -4,9 +4,11 @@
     python3 sweep.py [NPROC] [--ddt LIST]   the study for the CFD time schemes
                                             in LIST (default backward,BDF3,BDF4)
     python3 sweep.py --one                  the monolithic run and implicit
-                                            order 2 at dt = 0.5 ms (Allrun)
+                                            order 2 at dt = 0.5 ms (the case
+                                            of ./Allrun, in runs/)
 
-Each case is a copy of base/ in runs/<name> that differs only in the coupling
+Each case is a copy of this case (0/, constant/, system/, the one ./Allrun
+runs) in runs/<name> that differs only in the coupling
 scheme and order (constant/circulation1DProperties), deltaT and endTime
 (system/controlDict), and for BDF3 and BDF4 the ddt scheme (system/fvSchemes,
 "BDF 3", from libsolids4FoamModels) and the CFL number of the vessels (0.1, so
@@ -70,6 +72,13 @@ STUDY = {
 ACCURACY = STUDY["backward"]["accuracy"]
 
 
+def copy_case(dst):
+    """This case (0/, constant/, system/) into dst, without a mesh that
+    ./Allrun may have left in constant/polyMesh"""
+    for d in ("0", "constant", "system"):
+        shutil.copytree(HERE/d, dst/d, ignore=shutil.ignore_patterns("polyMesh"))
+
+
 def limit(order, ddt="backward"):
     """Predicted explicit stability limit in dt/tau"""
     return STUDY[ddt]["limits"][order - 1]
@@ -92,7 +101,7 @@ def setup(name, scheme, order, dt, end=0.35, study="backward"):
         return None
     if case.exists():
         shutil.rmtree(case)
-    shutil.copytree(HERE/"base", case)
+    copy_case(case)
     edit(case/"system"/"controlDict", [
         (r"^deltaT\s+\S+;", f"deltaT          {dt!r};"),
         (r"^endTime\s+\S+;", f"endTime         {end!r};"),
@@ -130,9 +139,10 @@ def monolithic(cfl=0.5):
     if case.exists():
         shutil.rmtree(case)
     case.mkdir(parents=True)
-    shutil.copytree(HERE/"base"/"constant", case/"constant")
+    shutil.copytree(HERE/"constant", case/"constant",
+                    ignore=shutil.ignore_patterns("polyMesh"))
     (case/"system").mkdir()
-    s = (HERE/"base"/"system"/"controlDict").read_text()
+    s = (HERE/"system"/"controlDict").read_text()
     s = s.split("libs")[0] + """application     circulation1DFoam;
 
 startFrom       startTime;

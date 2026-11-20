@@ -1,5 +1,6 @@
 #!/bin/bash
-# Remove every run, the plots and the results
+# Remove the run of ./Allrun and the study's runs; the committed study
+# results (results.md, highOrder*.md, plots/) are kept
 cd "$(dirname "$0")" || exit 1
-rm -rf runs plots __pycache__
-rm -f log log.* results.md
+rm -rf constant/polyMesh postProcessing runs __pycache__
+rm -f log log.* rigidSegment3D.png rigidSegment3D.pdf

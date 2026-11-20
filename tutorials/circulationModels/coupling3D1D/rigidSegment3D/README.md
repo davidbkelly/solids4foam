@@ -6,6 +6,8 @@ Prepared by David Kelly
 
 ## Tutorial Aims
 
+- Show how a 3D OpenFOAM case is coupled to 1D vessels: two boundary
+  conditions, one library and one dictionary, with stock `pimpleFoam`.
 - Verify the 3D-1D coupling (`circulation1DCoupling`) against an exact
   solution: a rigid 3D pipe between two 1D vessels.
 - Measure the order of the coupling in the time step, for explicit coupling of
@@ -57,30 +59,34 @@ corrector, `a0` the leading BDF coefficient (3/2, 11/6, 25/12).
 `BDF 3` and `BDF 4` are the `bdfDdtScheme` of `libsolids4FoamModels`; the
 cases that use them load it in `system/controlDict`.
 
-| Path | Purpose |
-| --- | --- |
-| `base/` | the case: mesh (blockMesh, 3072 cells), BCs, `constant/circulation1DProperties` (the vessels, the ports, `coupling`) |
-| `sweep.py` | sets up and runs the cases in `runs/` |
-| `analyse.py` | the comparison with the closed form, the orders, the stability checks |
-| `Allrun` | one case (implicit order 2, dt = 0.5 ms) and the 1D-only run, about 2 minutes |
-| `Allrun-sweep` | the whole study for backward, BDF 3 and BDF 4: about 100 cases, about an hour with 6 at a time (`DDT=backward` for one scheme) |
-| `Allrun-highOrder` | fourth order in space and time (`highOrder.py`): 17 cases, about 15 minutes |
+Where each part of the set-up lives:
 
----
+- `system/blockMeshDict`: the pipe, an O-grid of 3072 cells (the patch
+  scaling above).
+- `0/p`: both pipe ends take their pressure from the vessels
+  (`circulation1DPressure`); `0/U`: `pressureInletOutletVelocity` at the
+  ends, `slip` on the wall.
+- `constant/circulation1DProperties`: the 1D side, i.e. the vessels, the
+  inflow, the two `coupledFlow` ports that tie vessel ends to the patches
+  `inlet` and `outlet`, and `coupling` (scheme and order).
+- `system/controlDict`: `pimpleFoam`, dt = 0.5 ms to 0.35 s;
+  `libs ("libcirculation1DCoupling.so")` loads the 1D solver and coupler.
+- `system/fvSolution`: each PIMPLE outer corrector is one coupling
+  iteration (see the set-up notes below).
+- `reference/rigidSegment_pipe.csv`: the closed form at full amplitude
+  (`src/circulationModels/docs/benchmarks3D1D.py csv`); the
+  `rigidSegment_physiological_*` files are a numerical reference at
+  physiological amplitude (`highOrder.py --reference`).
 
-## Running the Case
+The study scripts copy this case into `runs/` and change it there:
 
-Needs OpenFOAM.com and the `circulationModels` module built
-(`libcirculation1DCoupling`).
+- `Allrun-sweep` (`sweep.py`, `analyse.py`): the whole study for backward,
+  BDF 3 and BDF 4, about 100 cases, about an hour with 6 at a time
+  (`DDT=backward` for one scheme); `results.md`, `plots/rigidSegment3D.png`.
+- `Allrun-highOrder` (`highOrder.py`): fourth order in space and time, 17
+  cases, about 15 minutes; `highOrder.md`, `plots/highOrder3D1D.png`.
 
-```bash
-./Allrun            # results.md, plots/rigidSegment3D.png
-./Allrun-sweep      # NPROC=6 by default
-```
-
----
-
-## Set-up notes
+**Set-up notes.**
 
 - **Convergence of the implicit coupling.** Each outer corrector of PIMPLE is
   one fixed-point iteration on the interface flow; `residualControl` on `p`
@@ -96,7 +102,42 @@ Needs OpenFOAM.com and the `circulationModels` module built
 
 ---
 
-## Results
+## Running the Case
+
+Needs OpenFOAM.com and the `circulationModels` module built
+(`libcirculation1DCoupling`). `./Allrun` is shell only (gnuplot for the
+plot, if present); the studies need a Python with numpy and scipy.
+
+```bash
+./Allrun            # blockMesh, pimpleFoam (about 2 min), check, plot
+./Allrun-sweep      # the study: NPROC=6 PYTHON=python3 by default
+./Allrun-highOrder  # fourth order in space and time
+./Allclean          # the runs; the committed study results are kept
+```
+
+The coupler writes `postProcessing/circulation1DCoupling/0/coupling.dat`:
+per step the flow and pressure at both ports (`to3D`, the pipe inlet;
+`from3D`, the pipe outlet) and at probes at the vessels' midpoints.
+
+---
+
+## Expected Results
+
+`./Allrun` ends with the largest error of the run against the closed form,
+relative to the incident peak:
+
+```text
+max error / incident peak: Q 1.09e-03, P1 3.51e-03, P2 1.09e-03
+```
+
+and `rigidSegment3D.png` shows the flow through the pipe and the pressures
+at its ends on top of the closed form. The 1e-3 left is the vessels'
+discretisation (1.25 mm cells): the 1D network with the pipe replaced by its
+exact inertance gives the same error (1.2e-3 and 4.0e-3).
+
+---
+
+## Verification and Convergence Study
 
 From `./Allrun-sweep` (`results.md`, `plots/rigidSegment3D.png`):
 
@@ -145,7 +186,7 @@ In explicit coupling the coupler samples the flux once, at the start of the
 step, so the flux at the end of a step is the sample logged on the next row;
 `analyse.py` reads it so.
 
-## Fourth order in space and time
+### Fourth order in space and time
 
 `./Allrun-highOrder` (`highOrder.py`, 17 cases, about 15 minutes with 6 at a
 time): the vessels with the k-exact reconstruction of degree 3 and RK4, the
@@ -182,12 +223,21 @@ point values the comparison itself is second order). The closed form takes
 to the flow inlet, where it reflects with +1 in pressure. Orders between
 successive levels:
 
-| coupling | 3D flux | pipe-end pressures | waves in the vessels | error at 0.15625 mm |
-| --- | --- | --- | --- | --- |
-| implicit 4 | 3.93, 3.97, 3.99, 4.00 | 3.92, 3.98, 4.00, 4.00 | 3.95, 3.99, 4.00, 3.98 | 2.4e-8, 1.8e-8, 2.8e-8 |
-| explicit 4 | 3.88, 3.97, 3.99, 3.99 | 3.89, 3.99, 4.00, 4.00 | 3.96, 4.00, 4.00, 4.00 | 7.1e-8, 6.9e-8, 4.7e-8 |
-| implicit 2 | as implicit 4 | as implicit 4 | 1.61, 1.89, 1.97, 1.99 | 2.4e-8, 1.8e-8, 1.5e-5 |
-| implicit 1 | as implicit 4 | as implicit 4 | 0.98, 1.00, 1.00, 1.00 | 2.4e-8, 1.8e-8, 3.9e-3 |
+| coupling | 3D flux | pipe-end pressures | waves in the vessels |
+| --- | --- | --- | --- |
+| I4 | 3.93, 3.97, 3.99, 4.00 | 3.92, 3.98, 4.00, 4.00 | 3.95,3.99,4.00,3.98 |
+| E4 | 3.88, 3.97, 3.99, 3.99 | 3.89, 3.99, 4.00, 4.00 | 3.96,4.00,4.00,4.00 |
+| I2 | as I4 | as I4 | 1.61,1.89,1.97,1.99 |
+| I1 | as I4 | as I4 | 0.98,1.00,1.00,1.00 |
+
+(I implicit, E explicit, with the order.) The errors at 0.15625 mm:
+
+| coupling | 3D flux | pipe-end pressures | waves in the vessels |
+| --- | --- | --- | --- |
+| I4 | 2.4e-8 | 1.8e-8 | 2.8e-8 |
+| E4 | 7.1e-8 | 6.9e-8 | 4.7e-8 |
+| I2 | 2.4e-8 | 1.8e-8 | 1.5e-5 |
+| I1 | 2.4e-8 | 1.8e-8 | 3.9e-3 |
 
 Fourth order with no floor, and the 3D side of I1 and I2 at the
 fourth-order error at every level: in the linear problem the waves a
