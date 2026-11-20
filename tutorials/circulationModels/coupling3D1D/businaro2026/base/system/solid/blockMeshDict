@@ -1,0 +1,85 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      blockMeshDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Quarter of the wall, inner radius 1 cm, thickness 1 mm. The end faces are
+// symmetry planes: the wall's ends cannot move axially and are free radially
+// (Businaro 2026, Eq. 5.12). L and nz are set by makeCases.py.
+
+L       0.1;
+nz      100;
+
+scale 1;
+
+vertices
+(
+    (0.01 0 0)      // 0
+    (0.011 0 0)     // 1
+    (0 0.011 0)     // 2
+    (0 0.01 0)      // 3
+    (0.01 0 $L)     // 4
+    (0.011 0 $L)    // 5
+    (0 0.011 $L)    // 6
+    (0 0.01 $L)     // 7
+);
+
+blocks
+(
+    hex (0 1 2 3 4 5 6 7) (4 20 $nz) simpleGrading (1 1 1)
+);
+
+edges
+(
+    arc 1 2 (0.007778 0.007778 0)
+    arc 0 3 (0.007071 0.007071 0)
+    arc 5 6 (0.007778 0.007778 $L)
+    arc 4 7 (0.007071 0.007071 $L)
+);
+
+patches
+(
+    symmetry inlet
+    (
+        (3 2 1 0)
+    )
+    symmetry outlet
+    (
+        (4 5 6 7)
+    )
+    wall inner-wall
+    (
+        (3 0 4 7)
+    )
+    wall outer-wall
+    (
+        (6 5 1 2)
+    )
+    symmetry symmetry-x
+    (
+        (7 6 2 3)
+    )
+    symmetry symmetry-y
+    (
+        (0 1 5 4)
+    )
+);
+
+mergePatchPairs
+(
+);
+
+// ************************************************************************* //

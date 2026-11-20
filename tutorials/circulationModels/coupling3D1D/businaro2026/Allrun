@@ -1,0 +1,40 @@
+#!/bin/bash
+# Businaro (2026) pressure Gaussian pulse: write the runs, mesh and run them,
+# then compare. NPROC ranks for the 45 cm reference tube (default 16); the
+# coupled runs are serial and run alongside it. Pass --withRt to add
+# Businaro's own 30 cm reference with the resistance outlet.
+cd "$(dirname "$0")" || exit 1
+NPROC=${NPROC:-16}
+PYTHON=${PYTHON:-python3}
+
+$PYTHON makeCases.py "$@" || exit 1
+
+prepare() {
+    (cd "runs/$1" && blockMesh -region solid > log.blockMesh.solid 2>&1 \
+        && blockMesh -region fluid > log.blockMesh.fluid 2>&1 \
+        && topoSet -region fluid > log.topoSet 2>&1) || { echo "$1: meshing failed"; exit 1; }
+}
+
+finished() { [ -f "runs/$1/$2" ] && tail -n 20 "runs/$1/$2" | grep -q "^End"; }
+
+finished only1D log.circulation1DFoam || (cd runs/only1D && circulation1DFoam > log.circulation1DFoam 2>&1)
+
+for c in coupled coupled_explicit full3D_Rt; do
+    [ -d "runs/$c" ] || continue
+    finished $c log.solids4Foam && continue
+    prepare $c
+    (cd "runs/$c" && solids4Foam > log.solids4Foam 2>&1; echo "$c: $(tail -n 1 log.solids4Foam)") &
+done
+
+if ! finished full3D log.solids4Foam; then
+    prepare full3D
+    sed -i "s/^numberOfSubdomains.*/numberOfSubdomains $NPROC;/" runs/full3D/system/decomposeParDict
+    for region in fluid solid; do
+        sed -i "s/^numberOfSubdomains.*/numberOfSubdomains $NPROC;/" runs/full3D/system/$region/decomposeParDict
+        (cd runs/full3D && decomposePar -region $region -force > log.decomposePar.$region 2>&1)
+    done
+    (cd runs/full3D && mpirun --oversubscribe -np "$NPROC" solids4Foam -parallel > log.solids4Foam 2>&1)
+fi
+wait
+
+$PYTHON analyse.py

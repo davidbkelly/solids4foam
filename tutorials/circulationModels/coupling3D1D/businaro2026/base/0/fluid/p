@@ -1,0 +1,60 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    object      p;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+dimensions      [0 2 -2 0 0 0 0];
+
+internalField   uniform 0;
+
+boundaryField
+{
+    symmetry-x
+    {
+        type        symmetry;
+    }
+    symmetry-y
+    {
+        type        symmetry;
+    }
+    outlet
+    {
+        type        fixedValue;
+        value       uniform 0;
+    }
+    inlet
+    {
+        // Businaro (2026) Eq. 7.11: 2 kPa exp(-1e4 (t - 0.05)^2), kinematic (rho 1060)
+        type            uniformFixedValue;
+        uniformValue
+        {
+            type        expression;
+            expression  #{ 2000.0/1060.0*exp(-1e4*sqr(arg() - 0.05)) #};
+        }
+        value           uniform 0;
+    }
+    wall
+    {
+        // Default Dirichlet-Neumann approach
+        // type       zeroGradient;
+
+        // Robin-Neumann condition approach
+        type        elasticWallPressure;
+        value       uniform 0;
+    }
+}
+
+// ************************************************************************* //
