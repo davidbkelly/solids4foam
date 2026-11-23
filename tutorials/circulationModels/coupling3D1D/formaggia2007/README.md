@@ -164,17 +164,19 @@ the full tube gets a wall at 15 cm, the coupled run's 1D vessel a zero-flow
 end (which reflects with +1 in pressure), and both run for 70 ms so that
 the pulse, after leaving the 3D part at 10 ms, returns through the
 interface at about 50 ms and reaches z = 1.25 cm at 58 ms. Against the
-closed full tube (`results.md`, `coupled_c4p92_closed` against
-`full3D_closed`, same build):
+closed full tube (`coupled_c4p92_closed` against `full3D_closed`, same
+build; the outgoing peak is the largest pressure before 30 ms, the
+returning one after it: at 12.5 cm the full tube's largest pressure
+overall, 974 Pa at 36.6 ms, is the wave reflected from its wall at 15 cm):
 
 | z [cm] | outgoing peak: full / coupled [Pa] | returning peak: full / coupled [Pa], at [ms] | RMS(P - full) / pulse, 30-70 ms |
 |---|---|---|---|
 | 1.25 | 1352 / 1352 | 475 / 844 at 58.0 / 59.0 | 0.12 |
 | 2.5 | 1271 / 1303 | 656 / 1054 at 56.5 / 56.4 | 0.10 |
-| 3.75 | 1135 / 1169 | 680 / 1086 at 54.2 / 53.5 | 0.09 |
-| 5 (interface) | 1077 / 1124 | 678 / 1124 at 51.9 / 50.1 | 0.12 |
+| 3.75 | 1133 / 1169 | 680 / 1086 at 54.2 / 53.5 | 0.09 |
+| 5 (interface) | 1077 / 1104 | 678 / 1124 at 51.9 / 50.1 | 0.12 |
 | 10 | 902 / 1083 | | |
-| 12.5 | 974 / 1077 | | |
+| 12.5 | 880 / 1077 | | |
 
 The returning wave comes back through the interface into the 3D part at
 the right time (within 1-2 ms of the full tube at every section) and
@@ -182,7 +184,7 @@ with the 1D vessel's amplitude: the full tube disperses and attenuates
 the pulse on its way out and back through the thick wall (475-680 Pa on
 return), the 1D vessel carries it almost undispersed (844-1124 Pa), and
 the difference is already there on the outgoing wave at 10 and 12.5 cm
-(1083 against 902, 1077 against 974 Pa) before anything has returned. So
+(1083 against 902, 1077 against 880 Pa) before anything has returned. So
 the coupling passes a wave from 1D into 3D as it does from 3D into 1D;
 what the comparison measures beyond that is the 1D model's lack of wall
 inertia and dispersion, now counted twice.

@@ -1350,6 +1350,17 @@ processor boundary): full tube 1133 Pa (was 1132); RMS clamped / free /
 spring 4.7 / 2.4 / 2.5e-2 (was 4.6 / 2.5 / 2.5e-2). Flow RMS differences
 at the sections fall from 5-21 % to 2-5 % of the peak flow.
 
+**B4 closed end (item 8b; job 21109, 2 h 16 min on 8 ranks).** Against
+the Mac's killed partial run over 0-9.4 ms: 8.5e-5 of the peak or less.
+Every number the paper and thesis quote is unchanged: returning peaks
+844-1124 Pa (coupled) against 475-680 Pa (full) at 59.0 / 56.4 / 53.5 /
+50.1 ms against 58.0 / 56.5 / 54.2 / 51.9 ms, RMS over 30-70 ms
+0.09-0.12, outgoing 1083 against 902 Pa at 10 cm. Two entries of the
+README's table were wrong before the rerun, not because of it: the coupled
+outgoing peak at the interface is 1104 Pa (1124 is the returning one), and
+the full tube's outgoing peak at 12.5 cm is 880 Pa (974 Pa, at 36.6 ms, is
+the wave reflected from its wall at 15 cm).
+
 **R6 (pulse length) and plane stress.** `pulse.md` and
 `pulse_planeStress.md` regenerated: largest change in the plain RMS table
 3.51 to 3.78e-2 (T = 24 ms, z = 6.25 cm), peaks within 1 Pa; the R6 table's
