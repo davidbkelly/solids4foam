@@ -1,0 +1,64 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      thermophysicalProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// A compressible fluid matched to the vessels: adiabaticPerfectFluid has
+// rho = rho0 ((p + B)/(p0 + B))^(1/gamma), which for gamma = 1 and p0 = 0 is
+// rho = rho0 + p/c^2 with c^2 = B/rho0, independent of the temperature. With
+// rho0 = 1050 and B = rho0 c0^2 = 40000 Pa, c is the vessels' wave speed,
+// c0^2 = beta/(2 rho sqrt(A0)) = 800/21 m^2/s^2 (c0 = 6.1721 m/s), and with the
+// patch area pi R^2 the 3D impedance rho c/A equals the vessels' Zc: the pipe
+// is a piece of the same line.
+
+thermoType
+{
+    type            heRhoThermo;
+    mixture         pureMixture;
+    transport       const;
+    thermo          hConst;
+    equationOfState adiabaticPerfectFluid;
+    specie          specie;
+    energy          sensibleEnthalpy;
+}
+
+mixture
+{
+    specie
+    {
+        molWeight   18;
+    }
+    equationOfState
+    {
+        rho0        1050;
+        p0          0;
+        B           40000;              // rho0 c0^2
+        gamma       1;
+    }
+    thermodynamics
+    {
+        Cp          4000;
+        Hf          0;
+    }
+    transport
+    {
+        mu          0;                  // inviscid, as the linear vessels
+        Pr          1;
+    }
+}
+
+// ************************************************************************* //

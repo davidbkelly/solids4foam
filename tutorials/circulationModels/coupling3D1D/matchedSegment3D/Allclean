@@ -1,0 +1,6 @@
+#!/bin/bash
+# Remove the run of ./Allrun and the study's runs; the committed study
+# results (results.md, plots/) are kept
+cd "$(dirname "$0")" || exit 1
+rm -rf constant/polyMesh postProcessing runs __pycache__ 0.[0-9]*
+rm -f log log.* matchedSegment3D.png matchedSegment3D.pdf

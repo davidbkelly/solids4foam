@@ -1,0 +1,116 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      circulation1DProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// The 1D side of B5, the matched segment: the two vessels of rigidSegment3D
+// (the single pulse of Boileau et al. 2015; c0 = 6.17 m/s), 1 m each, joined
+// through a 20 cm 3D pipe whose compressible fluid has the vessels' wave speed
+// and impedance. The whole system is then one uniform line: the pulse passes
+// through the pipe with no reflection, delayed by 0.2/c0 = 32.4 ms. The
+// vessels solve the linearised equations at fourth order, so the exact
+// solution holds at any amplitude and the 1D error stays far below the 3D one.
+
+fluid
+{
+    rho             1050;
+    mu              0;
+    profileOrder    9;
+    alpha           1;
+}
+
+numerics
+{
+    CFL             0.5;
+    flux            HLL;
+    reconstruction  kExact;
+    polynomialOrder 3;
+    timeScheme      RK4;
+}
+
+vesselDefaults
+{
+    length              1;
+    nCells              1600;           // dx = 0.625 mm
+    radius              0.01;
+    wallThickness       1.5e-3;
+    youngsModulus       400e3;
+    diastolicPressure   0;
+    externalPressure    0;
+    initialPressure     0;
+    linearised          true;
+}
+
+vessels
+{
+    proximal {}
+    distal   {}
+}
+
+nodes
+{
+    inlet
+    {
+        type        flowInlet;
+        connection  proximal.in;
+        flowRate
+        {
+            type        scale;
+            scale       1e-3;           // amplitude factor
+            value
+            {
+                type        expression;
+                expression  #{ 1e-6*exp(-1e4*sqr(arg() - 0.05)) #};
+            }
+        }
+    }
+
+    to3D                                // feeds the 3D inlet
+    {
+        type        coupledFlow;
+        connection  proximal.out;
+        patch       inlet;
+    }
+
+    from3D                              // fed by the 3D outlet
+    {
+        type        coupledFlow;
+        connection  distal.in;
+        patch       outlet;
+    }
+
+    outlet
+    {
+        type        absorbing;
+        connection  distal.out;
+    }
+}
+
+probes
+{
+    proximalMid { vessel proximal; x midpoint; }
+    distalMid   { vessel distal;   x midpoint; }
+}
+
+coupling
+{
+    scheme      implicit;       // explicit | implicit
+    order       2;              // 1..4
+    seed        zero;           // at rest: every earlier flow is zero
+}
+
+// ************************************************************************* //

@@ -4,7 +4,7 @@
 #   PYTHON=/path/to/python ./Allrun     a Python with numpy, scipy and matplotlib
 cd "$(dirname "$0")" || exit 1
 
-for case in rigidSegmentInertance rigidSegment3D dobroserdova2016 formaggia2007 womersleySegment thoracicAorta37
+for case in rigidSegmentInertance rigidSegment3D dobroserdova2016 formaggia2007 womersleySegment matchedSegment3D thoracicAorta37
 do
     echo "=== $case"
     "./$case/Allrun" || exit 1

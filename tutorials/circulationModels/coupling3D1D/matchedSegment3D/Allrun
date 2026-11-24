@@ -1,0 +1,58 @@
+#!/bin/bash
+# B5, the matched segment: a 20 cm rigid pipe holding a compressible fluid with
+# the vessels' wave speed and impedance (rhoPimpleFoam), coupled at both ends
+# to 1 m linearised 1D vessels; implicit coupling of order 2, dz = 5 mm,
+# dt = 0.4 ms (acoustic Courant 0.49); a few minutes. Then the check against
+# the exact solution, in which the pulse passes with no reflection, and the
+# plot (gnuplot). The refinement study is ./Allrun-study (Python).
+cd "$(dirname "$0")" || exit 1
+: "${WM_PROJECT_DIR:?OpenFOAM environment not sourced}"
+
+# Source solids4Foam scripts (on macOS, this keeps the OpenFOAM libraries findable)
+source solids4FoamScripts.sh
+
+# The circulation models are currently only built for OpenFOAM.com
+solids4Foam::caseDoesNotRunWithFoamExtend
+solids4Foam::caseDoesNotRunWithOpenFOAMOrg
+
+blockMesh > log.blockMesh 2>&1 || { echo "blockMesh failed: see log.blockMesh"; exit 1; }
+
+# Phase 1, to 0.12 s: the pulse is still in the proximal vessel (nothing
+# reaches the pipe before 0.16 s, even at 1e-12 of its peak), so one outer
+# corrector per step. The normalised residual of fields at rest is round-off,
+# and iterating it would only cost time.
+foamDictionary -entry endTime -set 0.12 system/controlDict > /dev/null 2>&1
+foamDictionary -entry writeInterval -set 0.12 system/controlDict > /dev/null 2>&1
+foamDictionary -entry PIMPLE.nOuterCorrectors -set 1 system/fvSolution > /dev/null 2>&1
+rhoPimpleFoam > log.rhoPimpleFoam.1 2>&1 || { echo "rhoPimpleFoam failed: see log.rhoPimpleFoam.1"; exit 1; }
+
+# Phase 2, from the written state (the coupler restarts from its checkpoint):
+# 20 outer correctors per step iterate the implicit coupling (system/fvSolution)
+foamDictionary -entry startFrom -set latestTime system/controlDict > /dev/null 2>&1
+foamDictionary -entry endTime -set 0.35 system/controlDict > /dev/null 2>&1
+foamDictionary -entry writeInterval -set 0.35 system/controlDict > /dev/null 2>&1
+foamDictionary -entry PIMPLE.nOuterCorrectors -set 20 system/fvSolution > /dev/null 2>&1
+rhoPimpleFoam > log.rhoPimpleFoam.2 2>&1
+status=$?
+foamDictionary -entry startFrom -set startTime system/controlDict > /dev/null 2>&1
+[ $status -eq 0 ] || { echo "rhoPimpleFoam failed: see log.rhoPimpleFoam.2"; exit 1; }
+
+# The largest errors against the exact solution, relative to the incident
+# peak: the pressures at the pipe's inlet and outlet (the incident pulse
+# Zc Qin(t - x/c0), delayed by 0.2/c0 = 32.4 ms at the outlet) and the
+# reflection, any wave left at the proximal midpoint once the pulse has passed
+cat postProcessing/circulation1DCoupling/*/coupling.dat | grep -v '^#' | sort -g -k1,1 | \
+awk 'BEGIN { c0 = 6.17213399848; P = 1050*c0/(3.14159265358979*1e-4)*1e-9
+             s = 1/sqrt(2e4); t1 = 0.05 + 1/c0; t2 = t1 + 0.2/c0; tm = 0.05 + 0.5/c0 }
+     { e = $4 - P*exp(-($1 - t1)^2/(2*s*s)); if (e < 0) e = -e; if (e > e1) e1 = e
+       e = $6 - P*exp(-($1 - t2)^2/(2*s*s)); if (e < 0) e = -e; if (e > e2) e2 = e
+       if ($1 > tm + 8*s) { e = ($7 < 0) ? -$7 : $7; if (e > er) er = e } }
+     END { printf "max error / incident peak: P inlet %.2e, P outlet %.2e, reflection %.2e", \
+                  e1/P, e2/P, er/P
+           print "   (expected 4.2e-03, 1.1e-02, 3.9e-03)" }'
+
+# Plot the run against the exact solution (matchedSegment3D.png, .pdf)
+if command -v gnuplot > /dev/null 2>&1
+then
+    gnuplot matchedSegment3D.gnuplot && echo "plots: matchedSegment3D.png, matchedSegment3D.pdf"
+fi

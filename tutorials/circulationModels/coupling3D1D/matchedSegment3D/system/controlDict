@@ -1,0 +1,45 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+application     rhoPimpleFoam;
+
+// The 1D network and the coupler, built from src/circulationModels
+libs            ("libcirculation1DCoupling.so");
+
+startFrom       startTime;
+startTime       0;
+stopAt          endTime;
+endTime         0.35;
+deltaT          4e-4;           // acoustic Courant c dt/dz = 0.49 at dz = 5 mm
+
+adjustTimeStep  no;
+
+writeControl    runTime;
+writeInterval   0.35;           // the fields and the vessel profiles at the end
+
+purgeWrite      0;
+writeFormat     binary;
+writePrecision  12;
+writeCompression off;
+timeFormat      general;
+timePrecision   12;
+
+runTimeModifiable false;
+
+// ************************************************************************* //

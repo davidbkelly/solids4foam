@@ -1,0 +1,86 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      fvSolution;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+solvers
+{
+    "rho.*"
+    {
+        solver          diagonal;
+    }
+
+    p
+    {
+        solver          GAMG;
+        tolerance       1e-14;
+        relTol          0;
+        smoother        GaussSeidel;
+        maxIter         200;
+    }
+
+    pFinal
+    {
+        $p;
+    }
+
+    "(U|UFinal)"
+    {
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        tolerance       1e-14;
+        relTol          0;
+        maxIter         200;
+    }
+
+    // The temperature does not enter the density, and at rest its normalised
+    // residual is round-off: a few sweeps are enough
+    "(h|hFinal)"
+    {
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        tolerance       1e-14;
+        relTol          0;
+        maxIter         5;
+    }
+}
+
+PIMPLE
+{
+    momentumPredictor       yes;
+    transonic               no;
+    nCorrectors             1;
+    nNonOrthogonalCorrectors 0;
+
+    // The outer correctors are also the iterations of the implicit coupling,
+    // which contract by about the acoustic Courant number (0.55 per iteration
+    // at 0.49): 20 of them leave 1e-5 of the step's change of the port flow.
+    // A fixed number rather than a residual control: while the pipe is at
+    // rest, or nearly, the normalised residual is round-off (rho = rho0 +
+    // p/c^2 loses p below 1e-13 rho0) and never meets a tolerance.
+    nOuterCorrectors        20;
+}
+
+relaxationFactors
+{
+    equations
+    {
+        ".*"            1;
+    }
+}
+
+// ************************************************************************* //

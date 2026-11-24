@@ -1,0 +1,115 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| solids4foam: solid mechanics and fluid-solid interaction simulations        |
+| Version:     v2.4                                                           |
+| Web:         https://solids4foam.github.io                                  |
+| Disclaimer:  This offering is not approved or endorsed by OpenCFD Limited,  |
+|              producer and distributor of the OpenFOAM software via          |
+|              www.openfoam.com, and owner of the OPENFOAM® and OpenCFD®      |
+|              trade marks.                                                   |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      blockMeshDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// A rigid pipe of radius 1 cm and length L along z: rigidSegment3D's O-grid
+// with one cell across the outer ring, 8*8 + 4*8 = 96 cells per section and
+// nz along the pipe. The patches are polygons of 32 sides inscribed in a
+// circle of radius R' = R sqrt(pi/(16 sin(pi/16))) = 0.0100322208 m, so that
+// their area is pi R^2 exactly (R = 1 cm) and the 3D impedance rho c/A equals
+// the vessels'. The wave is plane, so the cross-section needs no resolution.
+
+L       0.2;        // pipe length [m]
+nz      40;         // cells along the pipe (dz = 5 mm)
+
+scale 1;
+
+vertices
+(
+    (0.010032220805 0 0)
+    (0 0.010032220805 0)
+    (-0.010032220805 0 0)
+    (0 -0.010032220805 0)
+    (0.010032220805 0 $L)
+    (0 0.010032220805 $L)
+    (-0.010032220805 0 $L)
+    (0 -0.010032220805 $L)
+    (0.003 0 0)
+    (0 0.003 0)
+    (-0.003 0 0)
+    (0 -0.003 0)
+    (0.003 0 $L)
+    (0 0.003 $L)
+    (-0.003 0 $L)
+    (0 -0.003 $L)
+);
+
+blocks
+(
+    hex ( 8  0  1  9  12  4  5 13) (1 8 $nz) simpleGrading (1 1 1)
+    hex ( 9  1  2 10  13  5  6 14) (1 8 $nz) simpleGrading (1 1 1)
+    hex (10  2  3 11  14  6  7 15) (1 8 $nz) simpleGrading (1 1 1)
+    hex (11  3  0  8  15  7  4 12) (1 8 $nz) simpleGrading (1 1 1)
+    hex ( 8  9 10 11  12 13 14 15) (8 8 $nz) simpleGrading (1 1 1)
+);
+
+edges
+(
+    arc 0 1 ( 0.00709385136157  0.00709385136157 0)
+    arc 1 2 (-0.00709385136157  0.00709385136157 0)
+    arc 2 3 (-0.00709385136157 -0.00709385136157 0)
+    arc 3 0 ( 0.00709385136157 -0.00709385136157 0)
+    arc 4 5 ( 0.00709385136157  0.00709385136157 $L)
+    arc 5 6 (-0.00709385136157  0.00709385136157 $L)
+    arc 6 7 (-0.00709385136157 -0.00709385136157 $L)
+    arc 7 4 ( 0.00709385136157 -0.00709385136157 $L)
+);
+
+boundary
+(
+    inlet                   // z = 0: fed by the proximal vessel
+    {
+        type patch;
+        faces
+        (
+            ( 8  0  1  9)
+            ( 9  1  2 10)
+            (10  2  3 11)
+            (11  3  0  8)
+            ( 8  9 10 11)
+        );
+    }
+    outlet                  // z = L: feeds the distal vessel
+    {
+        type patch;
+        faces
+        (
+            (12  4  5 13)
+            (13  5  6 14)
+            (14  6  7 15)
+            (15  7  4 12)
+            (12 13 14 15)
+        );
+    }
+    wall
+    {
+        type wall;
+        faces
+        (
+            (0 4 5 1)
+            (1 5 6 2)
+            (2 6 7 3)
+            (3 7 4 0)
+        );
+    }
+);
+
+mergePatchPairs
+(
+);
+
+// ************************************************************************* //

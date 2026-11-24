@@ -126,6 +126,7 @@ tutorials/circulationModels/**/constant/*/polyMesh/
 tutorials/circulationModels/**/*.foam
 tutorials/circulationModels/**/__pycache__/
 tutorials/circulationModels/coupling3D1D/rigidSegment3D/rigidSegment3D.p[dn][fg]
+tutorials/circulationModels/coupling3D1D/matchedSegment3D/matchedSegment3D.p[dn][fg]
 tutorials/circulationModels/circulation0D/pipeClosedLoop/explicit/
 tutorials/circulationModels/circulation0D/pipeClosedLoop/implicit/
 tutorials/circulationModels/circulation0D/pipeWindkessel/explicit/

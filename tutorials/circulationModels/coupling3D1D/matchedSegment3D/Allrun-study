@@ -1,0 +1,9 @@
+#!/bin/bash
+# B5's refinement study (study.py): the 3D cells along the pipe and the 3D step
+# halved together, three levels by default (dz = 5, 2.5, 1.25 mm), against the
+# exact solution; writes results.md and plots/matchedSegment3D.png.
+#   ./Allrun-study [NPROC] [--levels N] [--aitken]
+cd "$(dirname "$0")" || exit 1
+: "${WM_PROJECT_DIR:?OpenFOAM environment not sourced}"
+source solids4FoamScripts.sh
+python3 study.py run "$@"
