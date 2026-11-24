@@ -1409,3 +1409,54 @@ flow 1.028e-4 against his 1.033e-4 m3/s. Coupled against the full tube
 at 15 / 20 / 30 cm; 1D alone 2.4 / 5.2 / 7.9 / 10.0 / 12.8 %. The growth
 beyond the interface is the 1D model's speed, 6.23 against 5.67 m/s. In the
 paper (`compliant.tex`, "A second code") and the thesis (chapter 11).
+
+### B5, the matched segment: built and run (24 November; keep or drop to be decided)
+
+The 16 November decision above is reversed for a trial: B5 is built as the
+tutorial `coupling3D1D/matchedSegment3D`, and nothing in the paper, thesis
+or deck mentions it until David decides. The coupler takes compressible 3D
+solvers since 2d9e6ffaf (phi/rho on the patch faces, p in Pa; Robin stops
+with a message).
+
+Set-up: rigidSegment3D's vessels (1 m each, c0 = 6.1721 m/s, linearised,
+k-exact 3 + RK4, 1600 cells), Boileau's Gaussian at 1e-3, absorbing outlet;
+a rigid 20 cm pipe, slip, inviscid, `rhoPimpleFoam` with
+`adiabaticPerfectFluid` (gamma = 1, p0 = 0, rho0 = 1050, B = rho0 c0^2 =
+40000 Pa: rho = rho0 + p/c0^2, independent of T; perfectFluid gave the same
+numbers but its energy equation cost 200 sweeps a step), the O-grid with
+area pi R^2 and one cell across the outer ring (96 per section). Exact
+solution: one uniform line, no reflection, delay 0.2/c0 = 32.40 ms. Two
+phases (to 0.12 s with one outer corrector, then from the written state
+with 20): the normalised residual of fields at rest is round-off (rho0 +
+p/c^2 loses p below 1e-13 rho0), so residualControl can never be met and
+a fixed corrector count is used. Measured with the analysis's own exact
+pulses (`analyse.py`), relative to the incident peak:
+
+| dz, dt | P inlet | reflection | P outlet | delay / (L/c0) |
+| --- | --- | --- | --- | --- |
+| 5 mm, 0.4 ms | 4.16e-3 | 3.89e-3 | 1.10e-2 | 5.3e-3 |
+| 2.5 mm, 0.2 ms | 1.03e-3 (2.02) | 9.59e-4 (2.02) | 2.66e-3 (2.05) | 1.3e-3 (2.07) |
+| 1.25 mm, 0.1 ms | 2.56e-4 (2.00) | 2.38e-4 (2.01) | 6.51e-4 (2.03) | 3.1e-4 (2.04) |
+
+(acoustic Courant 0.49 at every level; flows Q at the ports identical to the
+pressures to three digits). Second order everywhere, the 3D solver's; the
+reflection has the shape of the pulse's second time derivative (the discrete
+line's impedance error, O((k dz)^2)). The 1D side contributes nothing
+(3200 cells: same figures to three digits). The 0.625 mm level (about 1 h
+serial) has not been run.
+
+Coupling behaviour: the implicit iteration contracts by 0.55 per outer
+corrector at Courant 0.49, i.e. by about c0 dt/dz (the 3D side answers a
+port pressure change through one cell's inertia, dQ/dP = A dt/(rho dz), so
+the loop gain is Zc A dt/(rho dz) = c0 dt/dz). Explicit order 1 is stable at
+0.49 (reflection 1.7e-2, inlet P 1.8e-2 at 5 mm); explicit order 2 diverges
+at 0.49 and is stable at 0.25 (reflection 4.0e-3, errors as implicit): the
+recurrence Q(n+1) = -kappa Q_f with kappa = c0 dt/dz is stable for kappa < 1
+(order 1) and kappa < 1/3 (order 2). The Aitken interface fails on this case:
+with the pipe at rest it measures omega from round-off and freezes the
+interface (no signal passes); to be fixed before Aitken is recommended for
+compressible 3D sides.
+
+First study bug, for the record: foamDictionary -set on blockMeshDict wrote
+the blocks back with $nz expanded, so the first "levels" all ran on 5 mm;
+study.py now edits the nz line as text.
