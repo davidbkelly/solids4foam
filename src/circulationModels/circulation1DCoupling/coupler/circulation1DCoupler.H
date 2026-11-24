@@ -39,7 +39,9 @@ Description
             seed        zero;       // optional, as for circulationCoupler
         }
 
-    The density is the network's (fluid { rho ...; }); the CFD solves p/rho.
+    The density is the network's (fluid { rho ...; }); an incompressible CFD
+    solves p/rho. A compressible one (phi a mass flux, p in Pa) is sampled
+    through phi/rho on the patch faces and given the pressure in Pa.
 
     "pressure static" (the default) imposes the vessel end's pressure P1D on
     the patch. "pressure total" makes the total pressure continuous: the

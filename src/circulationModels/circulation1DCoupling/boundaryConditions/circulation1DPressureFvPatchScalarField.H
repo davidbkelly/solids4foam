@@ -20,7 +20,9 @@ Class
 
 Description
     Kinematic pressure p/rho on a patch coupled to a port (coupledFlow node) of
-    a 1D arterial network. Whether the exchange is explicit or implicit, and of
+    a 1D arterial network, or the pressure in Pa when the field has pressure
+    dimensions (a compressible solver; Dirichlet or Aitken interface only).
+    Whether the exchange is explicit or implicit, and of
     what order, is chosen in the "coupling" block of
     constant/circulation1DProperties, not by the BC type.
 

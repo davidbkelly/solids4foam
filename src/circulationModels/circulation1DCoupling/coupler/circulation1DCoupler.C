@@ -32,6 +32,7 @@ Author
 #include "Time.H"
 #include "IOdictionary.H"
 #include "surfaceFields.H"
+#include "volFields.H"
 #include "Pstream.H"
 
 #include <map>
@@ -1068,17 +1069,27 @@ void Foam::circulation1DCoupler::sampleAndAdvance(const fvMesh& mesh)
     const surfaceScalarField& phi =
         mesh.lookupObject<surfaceScalarField>("phi");
 
-    if (phi.dimensions() != dimVolume/dimTime)
+    // A compressible solver's phi is a mass flux: the network exchanges the
+    // volumetric flux, phi over the density on the patch faces
+    const bool massFlux = (phi.dimensions() == dimMass/dimTime);
+
+    if (!massFlux && phi.dimensions() != dimVolume/dimTime)
     {
         FatalErrorInFunction
-            << "A volumetric flux phi is required, found " << phi.dimensions()
-            << exit(FatalError);
+            << "A volumetric or mass flux phi is required, found "
+            << phi.dimensions() << exit(FatalError);
     }
 
     // All ranks take part in the reductions, including those without faces
     for (portData& p : ports_)
     {
-        const scalarField& phip = phi.boundaryField()[p.patchID];
+        scalarField phip(phi.boundaryField()[p.patchID]);
+        if (massFlux)
+        {
+            phip /=
+                mesh.lookupObject<volScalarField>("rho")
+                    .boundaryField()[p.patchID];
+        }
         const scalar leaving = p.flowScale*gSum(phip);
         p.Q = p.inlet ? -leaving : leaving;
         p.phiStar = phip;

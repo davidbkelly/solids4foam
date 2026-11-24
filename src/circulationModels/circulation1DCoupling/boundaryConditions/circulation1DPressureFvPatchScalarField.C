@@ -166,8 +166,13 @@ void Foam::circulation1DPressureFvPatchScalarField::updateCoeffs()
 
     const word& port = coupler.portOfPatch(patch().index());
 
-    // The network works in Pa; the incompressible solvers expect p/rho
-    const scalar Pstar = coupler.patchPressure(port)/coupler.rho();
+    // The network works in Pa; the incompressible solvers expect p/rho, the
+    // compressible ones p in Pa
+    const bool kinematic = (internalField().dimensions() != dimPressure);
+    const scalar Pstar =
+        kinematic
+      ? coupler.patchPressure(port)/coupler.rho()
+      : coupler.patchPressure(port);
 
     if (!coupler.robin())
     {
@@ -181,6 +186,15 @@ void Foam::circulation1DPressureFvPatchScalarField::updateCoeffs()
     }
 
     // ---- The impedance (Robin) interface -----------------------------------
+
+    if (!kinematic)
+    {
+        FatalErrorInFunction
+            << "The Robin interface is derived from the incompressible"
+            << " pressure equation (p/rho); with " << internalField().name()
+            << " in Pa use  interface dirichlet;  or  interface aitken;"
+            << exit(FatalError);
+    }
 
     const scalarField& magSf = patch().magSf();
     const scalar zu = coupler.robinCoefficient(port);
